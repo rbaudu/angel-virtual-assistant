@@ -1,0 +1,150 @@
+{
+  "system": {
+    "name": "Angel Companion",
+    "version": "1.0.0",
+    "language": "fr",
+    "wakeWord": "Angel"
+  },
+  "api": {
+    "angelServerUrl": "http://localhost:8080/api",
+    "pollingInterval": 30000,
+    "timeout": 5000
+  },
+  "avatar": {
+    "enabled": true,
+    "displayTime": 30000,
+    "transitionEffect": "fade",
+    "defaultMood": "neutral"
+  },
+  "proposals": {
+    "daily": {
+      "news": {
+        "maxPerDay": 5,
+        "minTimeBetween": 7200000,
+        "sources": ["local", "national", "international"],
+        "preferredCategories": ["general", "health", "science"]
+      },
+      "weather": {
+        "maxPerDay": 3,
+        "minTimeBetween": 14400000,
+        "includeToday": true,
+        "includeTomorrow": true
+      },
+      "stories": {
+        "maxPerDay": 2,
+        "minTimeBetween": 21600000,
+        "types": ["short", "joke", "legend", "poem", "anecdote", "discovery"],
+        "maxDuration": 180
+      },
+      "reminders": {
+        "maxPerDay": 5,
+        "minTimeBetween": 10800000,
+        "includeAppointments": true,
+        "includeBirthdays": true,
+        "includeMedications": true,
+        "advanceNotice": 86400000
+      },
+      "conversations": {
+        "maxPerDay": 2,
+        "minTimeBetween": 21600000,
+        "topics": ["childhood", "memorable_events", "opinions", "family"],
+        "maxDuration": 300
+      },
+      "calls": {
+        "maxPerDay": 1,
+        "minTimeBetween": 172800000,
+        "platform": "whatsapp",
+        "minDaysSinceLastContact": 7
+      },
+      "recommendations": {
+        "maxPerDay": 5,
+        "minTimeBetween": 7200000
+      },
+      "games": {
+        "maxPerDay": 2,
+        "minTimeBetween": 14400000,
+        "types": ["memory", "riddles", "trivia"]
+      },
+      "media": {
+        "maxPerDay": 3,
+        "minTimeBetween": 10800000,
+        "types": ["photos", "videos", "music", "radio", "tv"]
+      },
+      "healthAndFitness": {
+        "maxPerDay": 2,
+        "minTimeBetween": 21600000,
+        "exercises": ["stretching", "light_cardio", "balance", "coordination"]
+      },
+      "cooking": {
+        "maxPerDay": 1,
+        "minTimeBetween": 43200000,
+        "mealTypes": ["breakfast", "lunch", "dinner", "snack"],
+        "dietaryRestrictions": []
+      }
+    },
+    "activityMapping": {
+      "CLEANING": ["recommendations", "stories", "media.music", "media.radio"],
+      "CONVERSING": [],
+      "COOKING": ["recommendations", "media.music", "media.radio"],
+      "DANCING": [],
+      "EATING": ["news", "weather", "reminders.medications", "conversations"],
+      "FEEDING": ["recommendations"],
+      "GOING_TO_SLEEP": ["reminders", "weather.tomorrow"],
+      "KNITTING": ["stories", "media.music", "media.radio", "news"],
+      "IRONING": ["stories", "media.music", "media.radio", "news"],
+      "LISTENING_MUSIC": [],
+      "MOVING": ["recommendations", "healthAndFitness"],
+      "NEEDING_HELP": [],
+      "PHONING": [],
+      "PLAYING": [],
+      "PLAYING_MUSIC": [],
+      "PUTTING_AWAY": ["media.music", "media.radio", "conversations"],
+      "READING": [],
+      "RECEIVING": [],
+      "SINGING": [],
+      "SLEEPING": [],
+      "UNKNOWN": [],
+      "USING_SCREEN": ["reminders", "news"],
+      "WAITING": [
+        "news", "weather", "stories", "conversations", "games", 
+        "media", "cooking", "healthAndFitness"
+      ],
+      "WAKING_UP": ["weather", "reminders", "news"],
+      "WASHING": ["reminders"],
+      "WATCHING_TV": [],
+      "WRITING": []
+    },
+    "restrictedFollowUps": {
+      "EATING": ["healthAndFitness"],
+      "WAKING_UP": ["healthAndFitness"],
+      "GOING_TO_SLEEP": ["healthAndFitness", "games", "conversations"]
+    },
+    "timeConstraints": {
+      "news": {
+        "preferredHours": [8, 9, 12, 13, 18, 19, 20]
+      },
+      "weather": {
+        "preferredHours": [7, 8, 13, 14, 19]
+      },
+      "reminders.medications": {
+        "preferredHours": [8, 12, 19]
+      },
+      "healthAndFitness": {
+        "preferredHours": [9, 10, 16, 17],
+        "minHoursSinceWakeUp": 2
+      }
+    }
+  },
+  "database": {
+    "url": "jdbc:h2:file:./angel-db",
+    "username": "angel",
+    "password": "angel123",
+    "driver": "org.h2.Driver"
+  },
+  "logging": {
+    "level": "INFO",
+    "filePath": "./logs/angel.log",
+    "rotationSize": "10MB",
+    "maxFiles": 5
+  }
+}
