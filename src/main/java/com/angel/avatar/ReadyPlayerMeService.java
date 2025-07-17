@@ -139,11 +139,11 @@ public class ReadyPlayerMeService {
                 String url = String.format("%s/avatars/%s.%s?quality=%s", 
                                          baseUrl, avatarId, format, quality);
                 
-                // Vérifier que l'avatar existe
+                // Vérifier que l'avatar existe avec une requête GET simple
                 HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .header("Authorization", "Bearer " + apiKey)
-                    .HEAD()
+                    .method("GET", HttpRequest.BodyPublishers.noBody())
                     .build();
                 
                 HttpResponse<Void> response = httpClient.send(request, 
