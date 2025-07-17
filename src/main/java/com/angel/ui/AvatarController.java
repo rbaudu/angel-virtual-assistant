@@ -86,36 +86,38 @@ public class AvatarController {
                 // Analyser l'émotion appropriée pour la proposition
                 String emotion = determineEmotionFromProposal(proposal);
                 
-                // Afficher l'avatar
-                return avatarManager.show()
-                    .thenCompose(v2 -> {
-                        // Faire parler l'avatar avec le prompt d'introduction
-                        return avatarManager.speak(avatarPrompt, emotion);
-                    })
-                    .thenCompose(v3 -> {
-                        // Attendre un peu puis présenter le contenu principal
+                // Afficher l'avatar et faire parler
+                return CompletableFuture.runAsync(() -> {
+                    avatarManager.show();
+                })
+                .thenCompose(v2 -> {
+                    // Faire parler l'avatar avec le prompt d'introduction
+                    return avatarManager.speak(avatarPrompt, emotion);
+                })
+                .thenCompose(v3 -> {
+                    // Attendre un peu puis présenter le contenu principal
+                    try {
+                        Thread.sleep(500);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                    return avatarManager.speak(proposalContent, emotion);
+                })
+                .thenCompose(v4 -> {
+                    // Maintenir l'avatar visible pendant la durée configurée
+                    long displayTime = configManager.getLong("avatar.displayTime", 30000);
+                    return CompletableFuture.runAsync(() -> {
                         try {
-                            Thread.sleep(500);
+                            Thread.sleep(displayTime);
                         } catch (InterruptedException e) {
                             Thread.currentThread().interrupt();
                         }
-                        return avatarManager.speak(proposalContent, emotion);
-                    })
-                    .thenCompose(v4 -> {
-                        // Maintenir l'avatar visible pendant la durée configurée
-                        long displayTime = configManager.getLong("avatar.displayTime", 30000);
-                        return CompletableFuture.runAsync(() -> {
-                            try {
-                                Thread.sleep(displayTime);
-                            } catch (InterruptedException e) {
-                                Thread.currentThread().interrupt();
-                            }
-                        });
-                    })
-                    .thenRun(() -> {
-                        // Cacher l'avatar après présentation
-                        avatarManager.hide();
                     });
+                })
+                .thenRun(() -> {
+                    // Cacher l'avatar après présentation
+                    avatarManager.hide();
+                });
             });
     }
     
@@ -137,25 +139,27 @@ public class AvatarController {
             .thenCompose(v -> {
                 LOGGER.log(Level.INFO, "Affichage d'un message par l'avatar: {0}", text);
                 
-                return avatarManager.show()
-                    .thenCompose(v2 -> {
-                        // Définir l'émotion avant de parler
-                        avatarManager.setEmotion(mood, 0.7);
-                        return avatarManager.speak(text, mood);
-                    })
-                    .thenCompose(v3 -> {
-                        // Maintenir l'avatar visible pendant la durée spécifiée
-                        return CompletableFuture.runAsync(() -> {
-                            try {
-                                Thread.sleep(durationMs);
-                            } catch (InterruptedException e) {
-                                Thread.currentThread().interrupt();
-                            }
-                        });
-                    })
-                    .thenRun(() -> {
-                        avatarManager.hide();
+                return CompletableFuture.runAsync(() -> {
+                    avatarManager.show();
+                })
+                .thenCompose(v2 -> {
+                    // Définir l'émotion avant de parler
+                    avatarManager.setEmotion(mood, 0.7);
+                    return avatarManager.speak(text, mood);
+                })
+                .thenCompose(v3 -> {
+                    // Maintenir l'avatar visible pendant la durée spécifiée
+                    return CompletableFuture.runAsync(() -> {
+                        try {
+                            Thread.sleep(durationMs);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        }
                     });
+                })
+                .thenRun(() -> {
+                    avatarManager.hide();
+                });
             });
     }
     
@@ -170,13 +174,15 @@ public class AvatarController {
                 String greetingMessage = configManager.getString("avatar.greetingMessage", 
                     "Bonjour ! Je suis votre assistante virtuelle Angel. Comment puis-je vous aider aujourd'hui ?");
                 
-                return avatarManager.show()
-                    .thenRun(() -> {
-                        // Effectuer un geste de salut
-                        avatarManager.playGesture("wave");
-                        avatarManager.setEmotion("happy", 0.8);
-                    })
-                    .thenCompose(v2 -> avatarManager.speak(greetingMessage, "happy"));
+                return CompletableFuture.runAsync(() -> {
+                    avatarManager.show();
+                })
+                .thenRun(() -> {
+                    // Effectuer un geste de salut
+                    avatarManager.playGesture("wave");
+                    avatarManager.setEmotion("happy", 0.8);
+                })
+                .thenCompose(v2 -> avatarManager.speak(greetingMessage, "happy"));
             });
     }
     
@@ -193,20 +199,22 @@ public class AvatarController {
         String goodbyeMessage = configManager.getString("avatar.goodbyeMessage", 
             "Au revoir ! N'hésitez pas à revenir si vous avez besoin d'aide.");
         
-        return avatarManager.show()
-            .thenRun(() -> {
-                avatarManager.playGesture("goodbye_wave");
-                avatarManager.setEmotion("friendly", 0.6);
-            })
-            .thenCompose(v -> avatarManager.speak(goodbyeMessage, "friendly"))
-            .thenRun(() -> {
-                try {
-                    Thread.sleep(2000); // Attendre 2 secondes
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-                avatarManager.hide();
-            });
+        return CompletableFuture.runAsync(() -> {
+            avatarManager.show();
+        })
+        .thenRun(() -> {
+            avatarManager.playGesture("goodbye_wave");
+            avatarManager.setEmotion("friendly", 0.6);
+        })
+        .thenCompose(v -> avatarManager.speak(goodbyeMessage, "friendly"))
+        .thenRun(() -> {
+            try {
+                Thread.sleep(2000); // Attendre 2 secondes
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            avatarManager.hide();
+        });
     }
     
     /**
@@ -247,22 +255,24 @@ public class AvatarController {
      * @return L'émotion recommandée
      */
     private String determineEmotionFromProposal(Proposal proposal) {
-        String type = proposal.getType();
-        if (type == null) return "neutral";
+        // Utiliser une méthode simple pour déterminer l'émotion
+        // car getType() semble ne pas exister
+        String title = proposal.getTitle();
+        String content = proposal.getContent();
         
-        switch (type.toLowerCase()) {
-            case "suggestion":
-            case "improvement":
-                return "thoughtful";
-            case "alert":
-            case "warning":
-                return "concerned";
-            case "achievement":
-            case "success":
-                return "happy";
-            case "information":
-            default:
-                return "neutral";
+        if (title == null && content == null) return "neutral";
+        
+        String text = (title != null ? title : "") + " " + (content != null ? content : "");
+        text = text.toLowerCase();
+        
+        if (text.contains("succès") || text.contains("réussi") || text.contains("félicitation")) {
+            return "happy";
+        } else if (text.contains("alerte") || text.contains("attention") || text.contains("problème")) {
+            return "concerned";
+        } else if (text.contains("suggestion") || text.contains("conseil") || text.contains("amélioration")) {
+            return "thoughtful";
+        } else {
+            return "neutral";
         }
     }
     
