@@ -6,9 +6,7 @@ import org.springframework.core.io.ClassPathResource;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -135,6 +133,19 @@ public class ConfigManager {
     }
     
     /**
+     * Obtient une valeur de configuration sous forme de long (sans valeur par défaut).
+     */
+    public Long getLong(String key) {
+        String value = mergedConfig.getProperty(key);
+        try {
+            return value != null ? Long.parseLong(value) : null;
+        } catch (NumberFormatException e) {
+            LOGGER.log(Level.WARNING, "Valeur invalide pour la clé ''{0}'': {1}", new Object[]{key, value});
+            return null;
+        }
+    }
+    
+    /**
      * Obtient une valeur de configuration sous forme de double.
      */
     public double getDouble(String key, double defaultValue) {
@@ -145,6 +156,43 @@ public class ConfigManager {
             LOGGER.log(Level.WARNING, "Valeur invalide pour la clé ''{0}'': {1}", new Object[]{key, value});
             return defaultValue;
         }
+    }
+    
+    /**
+     * Obtient une liste d'entiers à partir d'une chaîne séparée par des virgules.
+     */
+    public List<Integer> getIntegerList(String key) {
+        String value = mergedConfig.getProperty(key);
+        if (value == null || value.trim().isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        List<Integer> result = new ArrayList<>();
+        String[] parts = value.split(",");
+        for (String part : parts) {
+            try {
+                result.add(Integer.parseInt(part.trim()));
+            } catch (NumberFormatException e) {
+                LOGGER.log(Level.WARNING, "Valeur invalide dans la liste pour la clé ''{0}'': {1}", new Object[]{key, part});
+            }
+        }
+        return result;
+    }
+    
+    /**
+     * Obtient une liste de chaînes à partir d'une chaîne séparée par des virgules.
+     */
+    public List<String> getStringList(String key) {
+        String value = mergedConfig.getProperty(key);
+        if (value == null || value.trim().isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        return Arrays.asList(value.split(","))
+                .stream()
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
     }
     
     /**
