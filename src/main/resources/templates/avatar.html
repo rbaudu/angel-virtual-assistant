@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Angel Virtual Assistant</title>
+    <style>
+        /* CSS pour l'avatar réaliste */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #avatar-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 350px;
+            height: 500px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 25px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            overflow: hidden;
+            z-index: 1000;
+            transition: all 0.4s ease;
+            transform: translateY(520px);
+        }
+
+        #avatar-container.visible {
+            transform: translateY(0);
+        }
+
+        #avatar-viewport {
+            width: 100%;
+            height: 380px;
+            position: relative;
+            border-radius: 25px 25px 0 0;
+            overflow: hidden;
+            background: linear-gradient(145deg, #f0f2f5, #e1e5e9);
+        }
+
+        #avatar-viewport canvas {
+            width: 100% !important;
+            height: 100% !important;
+            display: block;
+        }
+
+        #message-bubble {
+            position: absolute;
+            bottom: 140px;
+            left: -280px;
+            width: 300px;
+            max-width: 300px;
+            background: white;
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            opacity: 0;
+            transform: translateY(20px) scale(0.9);
+            transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            z-index: 1001;
+        }
+
+        #message-bubble.show {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+
+        #message-bubble::after {
+            content: '';
+            position: absolute;
+            right: -12px;
+            top: 25px;
+            width: 0;
+            height: 0;
+            border-left: 12px solid white;
+            border-top: 8px solid transparent;
+            border-bottom: 8px solid transparent;
+        }
+
+        #message-text {
+            font-size: 16px;
+            line-height: 1.5;
+            color: #333;
+            margin: 0;
+        }
+
+        #avatar-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .control-button {
+            width: 45px;
+            height: 45px;
+            border: none;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.9);
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .control-button:hover {
+            background: white;
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .control-button:active {
+            transform: scale(0.95);
+        }
+
+        #avatar-status {
+            font-size: 14px;
+            color: #666;
+            text-align: center;
+            padding: 0 10px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 15px;
+            height: 30px;
+            line-height: 30px;
+            min-width: 100px;
+        }
+
+        #avatar-settings {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.9);
+            width: 400px;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.4s ease;
+            z-index: 2000;
+        }
+
+        #avatar-settings.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        #settings-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            z-index: 1999;
+        }
+
+        #settings-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .settings-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+
+        .setting-group {
+            margin-bottom: 20px;
+        }
+
+        .setting-label {
+            font-size: 16px;
+            font-weight: 500;
+            color: #555;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .setting-select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 16px;
+            background: white;
+            cursor: pointer;
+            transition: border-color 0.3s ease;
+        }
+
+        .setting-select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .settings-actions {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #e1e5e9;
+            color: #555;
+        }
+
+        .btn-secondary:hover {
+            background: #d1d5d9;
+        }
+
+        /* Animations de chargement */
+        .loading-spinner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 50px;
+            height: 50px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        /* Indicateur de parole */
+        .speaking-indicator {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            width: 20px;
+            height: 20px;
+            background: #4CAF50;
+            border-radius: 50%;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .speaking-indicator.active {
+            opacity: 1;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            #avatar-container {
+                width: 280px;
+                height: 400px;
+                bottom: 10px;
+                right: 10px;
+            }
+
+            #avatar-viewport {
+                height: 300px;
+            }
+
+            #message-bubble {
+                width: 250px;
+                left: -250px;
+                bottom: 120px;
+            }
+
+            #avatar-settings {
+                width: 90%;
+                max-width: 350px;
+            }
+        }
+
+        /* Thème sombre (optionnel) */
+        @media (prefers-color-scheme: dark) {
+            #avatar-container {
+                background: rgba(30, 30, 30, 0.95);
+            }
+
+            #message-bubble {
+                background: #2d2d2d;
+                color: white;
+            }
+
+            #message-bubble::after {
+                border-left-color: #2d2d2d;
+            }
+
+            #avatar-settings {
+                background: #2d2d2d;
+                color: white;
+            }
+
+            .setting-select {
+                background: #404040;
+                border-color: #555;
+                color: white;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Container principal de l'avatar -->
+    <div id="avatar-container">
+        <!-- Zone de rendu 3D -->
+        <div id="avatar-viewport">
+            <div class="loading-spinner" id="loading-spinner"></div>
+            <div class="speaking-indicator" id="speaking-indicator"></div>
+        </div>
+
+        <!-- Bulle de message -->
+        <div id="message-bubble">
+            <p id="message-text">Bonjour ! Je suis Angel, votre assistant virtuel.</p>
+        </div>
+
+        <!-- Contrôles de l'avatar -->
+        <div id="avatar-controls">
+            <button class="control-button" id="mute-btn" title="Couper/Activer le son">
+                🔊
+            </button>
+            
+            <div id="avatar-status">En attente...</div>
+            
+            <button class="control-button" id="settings-btn" title="Paramètres">
+                ⚙️
+            </button>
+        </div>
+    </div>
+
+    <!-- Overlay pour les paramètres -->
+    <div id="settings-overlay"></div>
+
+    <!-- Panneau de paramètres -->
+    <div id="avatar-settings">
+        <h3 class="settings-title">Configuration de l'Avatar</h3>
+        
+        <div class="setting-group">
+            <label class="setting-label" for="gender-select">Genre :</label>
+            <select class="setting-select" id="gender-select">
+                <option value="female">Femme</option>
+                <option value="male">Homme</option>
+            </select>
+        </div>
+        
+        <div class="setting-group">
+            <label class="setting-label" for="age-select">Âge :</label>
+            <select class="setting-select" id="age-select">
+                <option value="25">25 ans</option>
+                <option value="30" selected>30 ans</option>
+                <option value="35">35 ans</option>
+                <option value="40">40 ans</option>
+                <option value="50">50 ans</option>
+                <option value="60">60 ans</option>
+            </select>
+        </div>
+        
+        <div class="setting-group">
+            <label class="setting-label" for="style-select">Style :</label>
+            <select class="setting-select" id="style-select">
+                <option value="casual" selected>Décontracté</option>
+                <option value="professional">Professionnel</option>
+                <option value="friendly">Amical</option>
+                <option value="elegant">Élégant</option>
+            </select>
+        </div>
+        
+        <div class="setting-group">
+            <label class="setting-label" for="voice-select">Voix :</label>
+            <select class="setting-select" id="voice-select">
+                <option value="female_french_warm" selected>Femme - Chaleureuse</option>
+                <option value="female_french_professional">Femme - Professionnelle</option>
+                <option value="male_french_warm">Homme - Chaleureux</option>
+                <option value="male_french_professional">Homme - Professionnel</option>
+            </select>
+        </div>
+        
+        <div class="settings-actions">
+            <button class="btn btn-secondary" id="cancel-settings">Annuler</button>
+            <button class="btn btn-primary" id="apply-settings">Appliquer</button>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+    
+    <!-- Loaders Three.js -->
+    <script>
+        // GLTFLoader
+        (function() {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/js/loaders/GLTFLoader.js';
+            document.head.appendChild(script);
+        })();
+    </script>
+
+    <!-- Scripts de l'avatar -->
+    <script src="/js/avatar/LipSyncController.js"></script>
+    <script src="/js/avatar/EmotionController.js"></script>
+    <script src="/js/avatar/AnimationController.js"></script>
+    <script src="/js/avatar/SpeechController.js"></script>
+    <script src="/js/avatar/AvatarRenderer.js"></script>
+
+    <!-- Script principal -->
+    <script>
+        class AngelAvatarApp {
+            constructor() {
+                this.avatarRenderer = null;
+                this.websocketManager = null;
+                this.isInitialized = false;
+                this.isMuted = false;
+                
+                // Configuration initiale
+                this.config = {
+                    gender: 'female',
+                    age: 30,
+                    style: 'casual',
+                    voice: 'female_french_warm'
+                };
+                
+                this.init();
+            }
+            
+            async init() {
+                console.log('Initialisation de Angel Avatar App...');
+                
+                // Initialiser le système d'avatar
+                this.avatarRenderer = window.AvatarSystem.init('avatar-viewport');
+                
+                // Configurer les gestionnaires d'événements
+                this.setupEventHandlers();
+                
+                // Charger l'avatar par défaut
+                await this.loadDefaultAvatar();
+                
+                // Initialiser WebSocket
+                this.websocketManager = new AvatarWebSocketManager(this.avatarRenderer);
+                
+                // Masquer le spinner de chargement
+                this.hideLoadingSpinner();
+                
+                // Afficher l'avatar
+                this.showAvatar();
+                
+                this.isInitialized = true;
+                this.updateStatus('Prêt');
+                
+                console.log('Angel Avatar App initialisé');
+            }
+            
+            async loadDefaultAvatar() {
+                const modelPath = this.getModelPath(this.config.gender, this.config.age, this.config.style);
+                const success = await this.avatarRenderer.loadAvatar(modelPath);
+                
+                if (!success) {
+                    console.warn('Chargement du modèle par défaut échoué, utilisation du fallback');
+                    // Charger un modèle de fallback
+                    await this.avatarRenderer.loadAvatar('/models/avatars/default.glb');
+                }
+            }
+            
+            getModelPath(gender, age, style) {
+                const ageGroup = this.getAgeGroup(age);
+                return `/models/avatars/${gender}_${ageGroup}_${style}.glb`;
+            }
+            
+            getAgeGroup(age) {
+                if (age < 30) return 'young';
+                if (age < 45) return 'adult';
+                if (age < 60) return 'mature';
+                return 'senior';
+            }
+            
+            setupEventHandlers() {
+                // Bouton muet
+                document.getElementById('mute-btn').addEventListener('click', () => {
+                    this.toggleMute();
+                });
+                
+                // Bouton paramètres
+                document.getElementById('settings-btn').addEventListener('click', () => {
+                    this.showSettings();
+                });
+                
+                // Fermeture des paramètres
+                document.getElementById('cancel-settings').addEventListener('click', () => {
+                    this.hideSettings();
+                });
+                
+                document.getElementById('settings-overlay').addEventListener('click', () => {
+                    this.hideSettings();
+                });
+                
+                // Application des paramètres
+                document.getElementById('apply-settings').addEventListener('click', () => {
+                    this.applySettings();
+                });
+                
+                // Mise à jour de la voix selon le genre
+                document.getElementById('gender-select').addEventListener('change', (e) => {
+                    this.updateVoiceOptions(e.target.value);
+                });
+                
+                // Gestion du redimensionnement
+                window.addEventListener('resize', () => {
+                    if (this.avatarRenderer) {
+                        this.avatarRenderer.resize();
+                    }
+                });
+                
+                // Gestion des raccourcis clavier
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') {
+                        this.hideSettings();
+                    }
+                });
+            }
+            
+            updateVoiceOptions(gender) {
+                const voiceSelect = document.getElementById('voice-select');
+                voiceSelect.innerHTML = '';
+                
+                if (gender === 'female') {
+                    voiceSelect.innerHTML = `
+                        <option value="female_french_warm">Femme - Chaleureuse</option>
+                        <option value="female_french_professional">Femme - Professionnelle</option>
+                        <option value="female_french_young">Femme - Jeune</option>
+                    `;
+                } else {
+                    voiceSelect.innerHTML = `
+                        <option value="male_french_warm">Homme - Chaleureux</option>
+                        <option value="male_french_professional">Homme - Professionnel</option>
+                        <option value="male_french_mature">Homme - Mature</option>
+                    `;
+                }
+            }
+            
+            toggleMute() {
+                this.isMuted = !this.isMuted;
+                const muteBtn = document.getElementById('mute-btn');
+                muteBtn.textContent = this.isMuted ? '🔇' : '🔊';
+                muteBtn.title = this.isMuted ? 'Activer le son' : 'Couper le son';
+                
+                // Informer le système audio
+                if (this.avatarRenderer && this.avatarRenderer.speechController) {
+                    this.avatarRenderer.speechController.setVolume(this.isMuted ? 0 : 1);
+                }
+            }
+            
+            showSettings() {
+                // Pré-remplir les valeurs actuelles
+                document.getElementById('gender-select').value = this.config.gender;
+                document.getElementById('age-select').value = this.config.age;
+                document.getElementById('style-select').value = this.config.style;
+                document.getElementById('voice-select').value = this.config.voice;
+                
+                // Afficher le panneau
+                document.getElementById('settings-overlay').classList.add('show');
+                document.getElementById('avatar-settings').classList.add('show');
+            }
+            
+            hideSettings() {
+                document.getElementById('settings-overlay').classList.remove('show');
+                document.getElementById('avatar-settings').classList.remove('show');
+            }
+            
+            async applySettings() {
+                const newConfig = {
+                    gender: document.getElementById('gender-select').value,
+                    age: parseInt(document.getElementById('age-select').value),
+                    style: document.getElementById('style-select').value,
+                    voice: document.getElementById('voice-select').value
+                };
+                
+                // Vérifier si le modèle 3D doit changer
+                const needsModelChange = 
+                    newConfig.gender !== this.config.gender ||
+                    newConfig.age !== this.config.age ||
+                    newConfig.style !== this.config.style;
+                
+                if (needsModelChange) {
+                    this.updateStatus('Changement d\'apparence...');
+                    this.showLoadingSpinner();
+                    
+                    const newModelPath = this.getModelPath(newConfig.gender, newConfig.age, newConfig.style);
+                    const success = await this.avatarRenderer.loadAvatar(newModelPath);
+                    
+                    if (!success) {
+                        alert('Impossible de charger le nouveau modèle d\'avatar');
+                        this.hideLoadingSpinner();
+                        return;
+                    }
+                    
+                    this.hideLoadingSpinner();
+                }
+                
+                // Mettre à jour la configuration
+                this.config = newConfig;
+                
+                // Fermer les paramètres
+                this.hideSettings();
+                
+                this.updateStatus('Prêt');
+                
+                // Informer le backend du changement
+                if (this.websocketManager) {
+                    this.websocketManager.send({
+                        type: 'SETTINGS_CHANGED',
+                        config: this.config
+                    });
+                }
+            }
+            
+            showAvatar() {
+                const container = document.getElementById('avatar-container');
+                container.classList.add('visible');
+                
+                if (this.avatarRenderer) {
+                    this.avatarRenderer.setVisible(true);
+                }
+            }
+            
+            hideAvatar() {
+                const container = document.getElementById('avatar-container');
+                container.classList.remove('visible');
+                
+                if (this.avatarRenderer) {
+                    this.avatarRenderer.setVisible(false);
+                }
+            }
+            
+            showMessage(text, duration = 5000) {
+                const bubble = document.getElementById('message-bubble');
+                const messageText = document.getElementById('message-text');
+                
+                messageText.textContent = text;
+                bubble.classList.add('show');
+                
+                if (duration > 0) {
+                    setTimeout(() => {
+                        bubble.classList.remove('show');
+                    }, duration);
+                }
+            }
+            
+            hideMessage() {
+                document.getElementById('message-bubble').classList.remove('show');
+            }
+            
+            updateStatus(status) {
+                document.getElementById('avatar-status').textContent = status;
+            }
+            
+            showLoadingSpinner() {
+                document.getElementById('loading-spinner').style.display = 'block';
+            }
+            
+            hideLoadingSpinner() {
+                document.getElementById('loading-spinner').style.display = 'none';
+            }
+            
+            setSpeakingIndicator(speaking) {
+                const indicator = document.getElementById('speaking-indicator');
+                if (speaking) {
+                    indicator.classList.add('active');
+                } else {
+                    indicator.classList.remove('active');
+                }
+            }
+        }
+
+        // Initialiser l'application quand le DOM est prêt
+        document.addEventListener('DOMContentLoaded', () => {
+            window.angelApp = new AngelAvatarApp();
+        });
+
+        // API globale pour l'intégration
+        window.AngelAvatar = {
+            speak: (text, emotion = 'neutral') => {
+                if (window.angelApp && window.angelApp.avatarRenderer) {
+                    window.angelApp.showMessage(text);
+                    window.angelApp.setSpeakingIndicator(true);
+                    window.angelApp.updateStatus('Parle...');
+                    
+                    // Simulation - remplacer par vraie intégration
+                    setTimeout(() => {
+                        window.angelApp.setSpeakingIndicator(false);
+                        window.angelApp.updateStatus('Prêt');
+                        window.angelApp.hideMessage();
+                    }, 3000);
+                }
+            },
+            
+            setEmotion: (emotion, intensity = 1.0) => {
+                if (window.angelApp && window.angelApp.avatarRenderer) {
+                    window.angelApp.avatarRenderer.setEmotion(emotion, intensity);
+                }
+            },
+            
+            show: () => {
+                if (window.angelApp) {
+                    window.angelApp.showAvatar();
+                }
+            },
+            
+            hide: () => {
+                if (window.angelApp) {
+                    window.angelApp.hideAvatar();
+                }
+            }
+        };
+    </script>
+</body>
+</html>

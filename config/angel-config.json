@@ -14,7 +14,15 @@
     "enabled": true,
     "displayTime": 30000,
     "transitionEffect": "fade",
-    "defaultMood": "neutral"
+    "defaultMood": "neutral",
+    "type": "3d_realistic",
+    "model": "female_50_casual",
+    "voiceType": "female_french_warm",
+    "appearance": {
+      "age": 50,
+      "gender": "female",
+      "style": "casual_friendly"
+      }
   },
   "proposals": {
     "daily": {
