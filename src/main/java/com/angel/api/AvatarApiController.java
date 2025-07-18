@@ -369,14 +369,9 @@ public class AvatarApiController {
                 "status", "error",
                 "message", "Ready Player Me n'est pas disponible"
             );
-<<<<<<< HEAD
-            return CompletableFuture.completedFuture(ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)    
-            		.body(response));
-=======
             return CompletableFuture.completedFuture(
                 ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response)
             );
->>>>>>> dacda26b96432273f80e1ad13d2d020599e7e916
         }
 
         try {
@@ -426,14 +421,9 @@ public class AvatarApiController {
                 "status", "error",
                 "message", "Ready Player Me n'est pas disponible"
             );
-<<<<<<< HEAD
-            return CompletableFuture.completedFuture(ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)    
-            		.body(response));
-=======
             return CompletableFuture.completedFuture(
                 ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response)
             );
->>>>>>> dacda26b96432273f80e1ad13d2d020599e7e916
         }
 
         return readyPlayerMeService.getAvatarModelUrl(avatarId)
@@ -465,14 +455,9 @@ public class AvatarApiController {
                 "status", "error",
                 "message", "Ready Player Me n'est pas disponible"
             );
-<<<<<<< HEAD
-            return CompletableFuture.completedFuture(ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)    
-            		.body(response));
-=======
             return CompletableFuture.completedFuture(
                 ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response)
             );
->>>>>>> dacda26b96432273f80e1ad13d2d020599e7e916
         }
 
         return readyPlayerMeService.listUserAvatars()
@@ -505,14 +490,9 @@ public class AvatarApiController {
                 "status", "error",
                 "message", "Ready Player Me n'est pas disponible"
             );
-<<<<<<< HEAD
-            return CompletableFuture.completedFuture(ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)    
-            		.body(response));
-=======
             return CompletableFuture.completedFuture(
                 ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response)
             );
->>>>>>> dacda26b96432273f80e1ad13d2d020599e7e916
         }
 
         return readyPlayerMeService.deleteAvatar(avatarId)
