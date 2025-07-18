@@ -1,0 +1,220 @@
+{
+  "scenarios": {
+    "morning_routine": {
+      "name": "Routine matinale",
+      "description": "Séquence typique d'activités du matin",
+      "activities": [
+        {
+          "activity": "WAKING_UP",
+          "duration": 120000,
+          "confidence": 0.9,
+          "description": "Se réveiller"
+        },
+        {
+          "activity": "WASHING",
+          "duration": 180000,
+          "confidence": 0.85,
+          "description": "Se laver, aller aux toilettes"
+        },
+        {
+          "activity": "EATING",
+          "duration": 300000,
+          "confidence": 0.8,
+          "description": "Petit déjeuner"
+        },
+        {
+          "activity": "READING",
+          "duration": 600000,
+          "confidence": 0.7,
+          "description": "Lecture matinale"
+        }
+      ]
+    },
+    "afternoon_routine": {
+      "name": "Routine d'après-midi",
+      "description": "Activités typiques de l'après-midi",
+      "activities": [
+        {
+          "activity": "COOKING",
+          "duration": 600000,
+          "confidence": 0.85,
+          "description": "Préparation du déjeuner"
+        },
+        {
+          "activity": "EATING",
+          "duration": 900000,
+          "confidence": 0.9,
+          "description": "Déjeuner"
+        },
+        {
+          "activity": "WATCHING_TV",
+          "duration": 1200000,
+          "confidence": 0.8,
+          "description": "Regarder la télévision"
+        },
+        {
+          "activity": "READING",
+          "duration": 1800000,
+          "confidence": 0.75,
+          "description": "Lecture d'après-midi"
+        }
+      ]
+    },
+    "evening_routine": {
+      "name": "Routine du soir",
+      "description": "Séquence d'activités du soir",
+      "activities": [
+        {
+          "activity": "COOKING",
+          "duration": 900000,
+          "confidence": 0.85,
+          "description": "Préparation du dîner"
+        },
+        {
+          "activity": "EATING",
+          "duration": 600000,
+          "confidence": 0.9,
+          "description": "Dîner"
+        },
+        {
+          "activity": "WATCHING_TV",
+          "duration": 1800000,
+          "confidence": 0.8,
+          "description": "Émissions du soir"
+        },
+        {
+          "activity": "READING",
+          "duration": 900000,
+          "confidence": 0.7,
+          "description": "Lecture avant le coucher"
+        },
+        {
+          "activity": "GOING_TO_SLEEP",
+          "duration": 300000,
+          "confidence": 0.9,
+          "description": "Se préparer pour dormir"
+        }
+      ]
+    },
+    "random_day": {
+      "name": "Journée aléatoire",
+      "description": "Activités aléatoires tout au long de la journée",
+      "activities": "RANDOM_FROM_ALL"
+    },
+    "lazy_day": {
+      "name": "Journée tranquille",
+      "description": "Journée de repos avec activités relaxantes",
+      "activities": [
+        {
+          "activity": "WAKING_UP",
+          "duration": 180000,
+          "confidence": 0.8,
+          "description": "Réveil tardif"
+        },
+        {
+          "activity": "READING",
+          "duration": 1800000,
+          "confidence": 0.9,
+          "description": "Lecture prolongée"
+        },
+        {
+          "activity": "WATCHING_TV",
+          "duration": 2400000,
+          "confidence": 0.85,
+          "description": "Regarder des films"
+        },
+        {
+          "activity": "EATING",
+          "duration": 300000,
+          "confidence": 0.8,
+          "description": "Repas léger"
+        },
+        {
+          "activity": "WAITING",
+          "duration": 900000,
+          "confidence": 0.7,
+          "description": "Se reposer, ne rien faire"
+        }
+      ]
+    },
+    "busy_day": {
+      "name": "Journée chargée",
+      "description": "Journée avec beaucoup d'activités",
+      "activities": [
+        {
+          "activity": "WAKING_UP",
+          "duration": 60000,
+          "confidence": 0.9,
+          "description": "Réveil matinal"
+        },
+        {
+          "activity": "WASHING",
+          "duration": 120000,
+          "confidence": 0.85,
+          "description": "Toilette rapide"
+        },
+        {
+          "activity": "EATING",
+          "duration": 180000,
+          "confidence": 0.8,
+          "description": "Petit déjeuner rapide"
+        },
+        {
+          "activity": "CLEANING",
+          "duration": 1800000,
+          "confidence": 0.9,
+          "description": "Grand ménage"
+        },
+        {
+          "activity": "COOKING",
+          "duration": 600000,
+          "confidence": 0.85,
+          "description": "Préparation de repas"
+        },
+        {
+          "activity": "PUTTING_AWAY",
+          "duration": 900000,
+          "confidence": 0.8,
+          "description": "Rangement"
+        },
+        {
+          "activity": "IRONING",
+          "duration": 600000,
+          "confidence": 0.75,
+          "description": "Repassage"
+        }
+      ]
+    }
+  },
+  "globalSettings": {
+    "defaultConfidence": 0.75,
+    "transitionTime": 15000,
+    "allowedActivities": [
+      "CLEANING", "CONVERSING", "COOKING", "DANCING", "EATING", 
+      "FEEDING", "GOING_TO_SLEEP", "KNITTING", "IRONING", 
+      "LISTENING_MUSIC", "MOVING", "NEEDING_HELP", "PHONING", 
+      "PLAYING", "PLAYING_MUSIC", "PUTTING_AWAY", "READING", 
+      "RECEIVING", "SINGING", "SLEEPING", "UNKNOWN", 
+      "USING_SCREEN", "WAITING", "WAKING_UP", "WASHING", 
+      "WATCHING_TV", "WRITING"
+    ],
+    "restrictedActivities": {
+      "SLEEPING": {
+        "timeRestriction": "22:00-07:00",
+        "description": "Limité aux heures de nuit"
+      },
+      "COOKING": {
+        "timeRestriction": "07:00-21:00",
+        "description": "Limité aux heures de repas"
+      }
+    },
+    "activityWeights": {
+      "EATING": 1.2,
+      "READING": 1.1,
+      "WATCHING_TV": 1.0,
+      "COOKING": 0.8,
+      "CLEANING": 0.6,
+      "WAITING": 0.5
+    }
+  }
+}

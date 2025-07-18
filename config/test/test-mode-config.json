@@ -1,0 +1,44 @@
+{
+  "testMode": {
+    "enabled": true,
+    "autoStart": true,
+    "simulation": {
+      "interval": 30000,
+      "randomness": 0.2,
+      "scenarioFile": "config/test/activity-scenarios.json"
+    },
+    "activities": {
+      "sequence": "random",
+      "duration": {
+        "min": 60000,
+        "max": 300000
+      },
+      "transitions": {
+        "gradual": true,
+        "confidence": {
+          "min": 0.6,
+          "max": 0.95
+        }
+      }
+    },
+    "schedule": {
+      "followDailyPattern": true,
+      "patterns": {
+        "morning": ["WAKING_UP", "WASHING", "EATING", "READING"],
+        "afternoon": ["COOKING", "EATING", "WATCHING_TV", "READING"],
+        "evening": ["EATING", "WATCHING_TV", "READING", "GOING_TO_SLEEP"]
+      }
+    },
+    "web": {
+      "dashboardEnabled": true,
+      "dashboardPort": 8081,
+      "dashboardPath": "/test-dashboard"
+    },
+    "logging": {
+      "enabled": true,
+      "level": "DEBUG",
+      "logActivities": true,
+      "logTransitions": true
+    }
+  }
+}
