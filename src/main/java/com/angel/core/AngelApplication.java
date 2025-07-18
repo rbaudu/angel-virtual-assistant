@@ -1,6 +1,10 @@
 package com.angel.core;
 
 import com.angel.api.AngelServerClient;
+import com.angel.avatar.AvatarManager;
+import com.angel.avatar.EmotionAnalyzer;
+import com.angel.avatar.TextToSpeechService;
+import com.angel.avatar.WebSocketService;
 import com.angel.config.ConfigManager;
 import com.angel.intelligence.ProposalEngine;
 import com.angel.intelligence.proposals.*;
@@ -68,7 +72,12 @@ public class AngelApplication {
         this.proposalEngine = new ProposalEngine(configManager, proposalDAO, availableProposals);
         
         // Initialiser le contrôleur d'avatar
-        this.avatarController = new AvatarController(configManager);
+        TextToSpeechService ttsService = new TextToSpeechService(configManager);
+        WebSocketService webSocketService = new WebSocketService();
+        EmotionAnalyzer emotionAnalyzer = new EmotionAnalyzer();
+        AvatarManager avatarManager = new AvatarManager(configManager,ttsService,
+                 webSocketService,emotionAnalyzer);
+        this.avatarController = new AvatarController(configManager,avatarManager);
         
         // Initialiser le détecteur de mot-clé
         this.wakeWordDetector = new WakeWordDetector(configManager);

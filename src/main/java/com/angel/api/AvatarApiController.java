@@ -5,6 +5,7 @@ import com.angel.avatar.ReadyPlayerMeService;
 import com.angel.config.ConfigManager;
 import com.angel.ui.AvatarController;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -368,7 +369,8 @@ public class AvatarApiController {
                 "status", "error",
                 "message", "Ready Player Me n'est pas disponible"
             );
-            return CompletableFuture.completedFuture(ResponseEntity.serviceUnavailable().body(response));
+            return CompletableFuture.completedFuture(ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)    
+            		.body(response));
         }
 
         try {
@@ -401,7 +403,8 @@ public class AvatarApiController {
                 "status", "error",
                 "message", "Requête invalide: " + e.getMessage()
             );
-            return CompletableFuture.completedFuture(ResponseEntity.badRequest().body(response));
+            return CompletableFuture.completedFuture(ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)    
+            		.body(response));
         }
     }
 
@@ -417,7 +420,8 @@ public class AvatarApiController {
                 "status", "error",
                 "message", "Ready Player Me n'est pas disponible"
             );
-            return CompletableFuture.completedFuture(ResponseEntity.serviceUnavailable().body(response));
+            return CompletableFuture.completedFuture(ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)    
+            		.body(response));
         }
 
         return readyPlayerMeService.getAvatarModelUrl(avatarId)
@@ -449,7 +453,8 @@ public class AvatarApiController {
                 "status", "error",
                 "message", "Ready Player Me n'est pas disponible"
             );
-            return CompletableFuture.completedFuture(ResponseEntity.serviceUnavailable().body(response));
+            return CompletableFuture.completedFuture(ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)    
+            		.body(response));
         }
 
         return readyPlayerMeService.listUserAvatars()
@@ -482,7 +487,8 @@ public class AvatarApiController {
                 "status", "error",
                 "message", "Ready Player Me n'est pas disponible"
             );
-            return CompletableFuture.completedFuture(ResponseEntity.serviceUnavailable().body(response));
+            return CompletableFuture.completedFuture(ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)    
+            		.body(response));
         }
 
         return readyPlayerMeService.deleteAvatar(avatarId)
