@@ -18,9 +18,9 @@ import java.util.logging.Logger;
  * Charge et gère les configurations depuis les fichiers properties externes et internes.
  * 
  * Ordre de priorité de chargement :
- * 1. config/application-{profile}.properties (externe)
+ * 1. Classpath (config/*.properties)
  * 2. config/application.properties (externe)
- * 3. src/main/resources/config/*.properties (classpath)
+ * 3. config/application-{profile}.properties (externe)
  * 4. Variables système
  */
 @Configuration
@@ -38,7 +38,9 @@ public class ConfigManager {
      * Constructeur qui charge automatiquement les configurations.
      */
     public ConfigManager() {
-        // Chargement immédiat pour compatibilité avec les classes non-Spring
+        // Déterminer le profil actif immédiatement
+        determineActiveProfile();
+        // Charger les configurations avec le bon profil
         loadConfigurations();
     }
  
@@ -47,18 +49,20 @@ public class ConfigManager {
      */
     @PostConstruct
     public void init() {
-        // Déterminer le profil actif
-        determineActiveProfile();
-        
-        // Recharger avec le profil correct
-        loadConfigurations();
+        // Re-déterminer le profil actif avec les valeurs Spring injectées
+        if (springProfilesActive != null && !springProfilesActive.isEmpty()) {
+            activeProfile = springProfilesActive;
+            LOGGER.log(Level.INFO, "Profil redéfini par Spring : {0}", activeProfile);
+            // Recharger avec le profil Spring
+            loadConfigurations();
+        }
     }
     
     /**
      * Détermine le profil actif à partir des arguments ou variables d'environnement.
      */
     private void determineActiveProfile() {
-        // 1. Vérifier les arguments du programme
+        // 1. Vérifier les arguments du programme via la commande Java
         String[] args = getMainArgs();
         for (int i = 0; i < args.length - 1; i++) {
             if ("-p".equals(args[i]) || "--profile".equals(args[i])) {
@@ -68,21 +72,27 @@ public class ConfigManager {
             }
         }
         
-        // 2. Vérifier Spring profiles
-        if (springProfilesActive != null && !springProfilesActive.isEmpty()) {
-            activeProfile = springProfilesActive;
-            LOGGER.log(Level.INFO, "Profil défini par Spring : {0}", activeProfile);
+        // 2. Vérifier les propriétés système
+        String envProfile = System.getProperty("spring.profiles.active");
+        if (envProfile != null && !envProfile.isEmpty()) {
+            activeProfile = envProfile;
+            LOGGER.log(Level.INFO, "Profil défini par propriété système : {0}", activeProfile);
             return;
         }
         
         // 3. Vérifier les variables d'environnement
-        String envProfile = System.getProperty("spring.profiles.active");
-        if (envProfile == null) {
-            envProfile = System.getenv("SPRING_PROFILES_ACTIVE");
-        }
+        envProfile = System.getenv("SPRING_PROFILES_ACTIVE");
         if (envProfile != null && !envProfile.isEmpty()) {
             activeProfile = envProfile;
             LOGGER.log(Level.INFO, "Profil défini par variable d'environnement : {0}", activeProfile);
+            return;
+        }
+        
+        // 4. Vérifier via la propriété angel.profile (spécifique à Angel)
+        String angelProfile = System.getProperty("angel.profile");
+        if (angelProfile != null && !angelProfile.isEmpty()) {
+            activeProfile = angelProfile;
+            LOGGER.log(Level.INFO, "Profil défini par angel.profile : {0}", activeProfile);
             return;
         }
         
@@ -90,14 +100,18 @@ public class ConfigManager {
     }
     
     /**
-     * Récupère les arguments du main (approximation).
+     * Récupère les arguments du main depuis la commande Java.
      */
     private String[] getMainArgs() {
-        // En l'absence d'accès direct aux args, on essaie de les récupérer
-        // depuis les propriétés système ou on retourne un tableau vide
-        String argsProperty = System.getProperty("sun.java.command");
-        if (argsProperty != null) {
-            return argsProperty.split("\\s+");
+        // Récupérer la commande complète depuis les propriétés système
+        String commandLine = System.getProperty("sun.java.command");
+        if (commandLine != null) {
+            // La commande contient : "className arg1 arg2..." ou "jarFile arg1 arg2..."
+            String[] parts = commandLine.split("\\s+");
+            // Ignorer le premier élément (nom de classe ou JAR) et retourner les arguments
+            if (parts.length > 1) {
+                return Arrays.copyOfRange(parts, 1, parts.length);
+            }
         }
         return new String[0];
     }
@@ -161,7 +175,7 @@ public class ConfigManager {
                                new Object[]{path, props.size()});
                 }
             } else {
-                LOGGER.log(Level.WARNING, "Fichier de configuration classpath non trouvé : {0}", path);
+                LOGGER.log(Level.FINE, "Fichier de configuration classpath non trouvé : {0}", path);
             }
         } catch (IOException e) {
             LOGGER.log(Level.WARNING, "Erreur lors du chargement du fichier classpath : " + path, e);
@@ -174,7 +188,7 @@ public class ConfigManager {
     private void loadExternalConfiguration(String filePath) {
         Path path = Paths.get(filePath);
         if (!Files.exists(path)) {
-            LOGGER.log(Level.WARNING, "Fichier de configuration externe non trouvé : {0}", filePath);
+            LOGGER.log(Level.FINE, "Fichier de configuration externe non trouvé : {0}", filePath);
             return;
         }
         
@@ -194,7 +208,7 @@ public class ConfigManager {
     }
     
     /**
-     * Applique les propriétés système qui commencent par "angel."
+     * Applique les propriétés système qui commencent par certains préfixes.
      */
     private void applySystemProperties() {
         int count = 0;
