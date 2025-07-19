@@ -1,9 +1,9 @@
 package com.angel.config;
 
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.beans.factory.annotation.PostConstruct;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -16,7 +16,7 @@ import java.util.logging.Logger;
  * Charge et gère les configurations depuis les fichiers properties.
  */
 @Configuration
-public class ConfigManager {
+public class ConfigManager implements InitializingBean {
     
     private static final Logger LOGGER = Logger.getLogger(ConfigManager.class.getName());
     
@@ -32,14 +32,15 @@ public class ConfigManager {
      * Constructeur par défaut.
      */
     public ConfigManager() {
-        // Le chargement se fait dans @PostConstruct après injection des valeurs
+        // Le chargement se fait dans afterPropertiesSet() après injection des valeurs
     }
     
     /**
      * Initialisation après injection des dépendances Spring.
+     * Implémente InitializingBean.afterPropertiesSet()
      */
-    @PostConstruct
-    public void init() {
+    @Override
+    public void afterPropertiesSet() throws Exception {
         loadConfigurations();
         initialized = true;
     }
