@@ -4,31 +4,42 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
 import jakarta.annotation.PostConstruct;
-import java.io.IOException;
-import java.io.InputStream;
+
+import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
  * Gestionnaire de configuration centralisé pour l'application Angel.
- * Charge et gère les configurations depuis les fichiers properties.
+ * Charge et gère les configurations depuis les fichiers properties externes et internes.
+ * 
+ * Ordre de priorité de chargement :
+ * 1. config/application-{profile}.properties (externe)
+ * 2. config/application.properties (externe)
+ * 3. src/main/resources/config/*.properties (classpath)
+ * 4. Variables système
  */
 @Configuration
 public class ConfigManager {
     
     private static final Logger LOGGER = Logger.getLogger(ConfigManager.class.getName());
     
-    private final Map<String, Properties> configSources = new HashMap<>();
     private final Properties mergedConfig = new Properties();
+    private String activeProfile = "default";
     
-    @Value("${avatar.config.path:config/avatar.properties}")
-    private String avatarConfigPath;
+    @Value("${spring.profiles.active:}")
+    private String springProfilesActive;
     
     /**
      * Constructeur qui charge automatiquement les configurations.
      */
     public ConfigManager() {
+        // Chargement immédiat pour compatibilité avec les classes non-Spring
+        loadConfigurations();
     }
  
     /**
@@ -36,63 +47,165 @@ public class ConfigManager {
      */
     @PostConstruct
     public void init() {
+        // Déterminer le profil actif
+        determineActiveProfile();
+        
+        // Recharger avec le profil correct
         loadConfigurations();
     }
     
     /**
-     * Charge toutes les configurations depuis les fichiers properties.
+     * Détermine le profil actif à partir des arguments ou variables d'environnement.
+     */
+    private void determineActiveProfile() {
+        // 1. Vérifier les arguments du programme
+        String[] args = getMainArgs();
+        for (int i = 0; i < args.length - 1; i++) {
+            if ("-p".equals(args[i]) || "--profile".equals(args[i])) {
+                activeProfile = args[i + 1];
+                LOGGER.log(Level.INFO, "Profil défini par argument : {0}", activeProfile);
+                return;
+            }
+        }
+        
+        // 2. Vérifier Spring profiles
+        if (springProfilesActive != null && !springProfilesActive.isEmpty()) {
+            activeProfile = springProfilesActive;
+            LOGGER.log(Level.INFO, "Profil défini par Spring : {0}", activeProfile);
+            return;
+        }
+        
+        // 3. Vérifier les variables d'environnement
+        String envProfile = System.getProperty("spring.profiles.active");
+        if (envProfile == null) {
+            envProfile = System.getenv("SPRING_PROFILES_ACTIVE");
+        }
+        if (envProfile != null && !envProfile.isEmpty()) {
+            activeProfile = envProfile;
+            LOGGER.log(Level.INFO, "Profil défini par variable d'environnement : {0}", activeProfile);
+            return;
+        }
+        
+        LOGGER.log(Level.INFO, "Utilisation du profil par défaut : {0}", activeProfile);
+    }
+    
+    /**
+     * Récupère les arguments du main (approximation).
+     */
+    private String[] getMainArgs() {
+        // En l'absence d'accès direct aux args, on essaie de les récupérer
+        // depuis les propriétés système ou on retourne un tableau vide
+        String argsProperty = System.getProperty("sun.java.command");
+        if (argsProperty != null) {
+            return argsProperty.split("\\s+");
+        }
+        return new String[0];
+    }
+    
+    /**
+     * Charge toutes les configurations dans l'ordre de priorité.
      */
     private void loadConfigurations() {
+        mergedConfig.clear();
+        
         try {
-            // Charger la configuration principale de l'avatar
-            loadConfigFile("avatar", avatarConfigPath);
+            // 1. Charger les fichiers du classpath (priorité basse)
+            loadClasspathConfigurations();
             
-            // Charger d'autres fichiers de configuration
-            loadConfigFile("phoneme-viseme", "config/phoneme-viseme-mapping.properties");
+            // 2. Charger le fichier externe principal
+            loadExternalConfiguration("config/application.properties");
             
-            // Fusionner toutes les configurations
-            mergeConfigurations();
+            // 3. Charger le fichier externe spécifique au profil (priorité haute)
+            if (!"default".equals(activeProfile)) {
+                loadExternalConfiguration("config/application-" + activeProfile + ".properties");
+            }
             
-            LOGGER.log(Level.INFO, "Configurations chargées avec succès");
+            // 4. Appliquer les variables système (priorité maximale)
+            applySystemProperties();
+            
+            LOGGER.log(Level.INFO, "Configuration chargée avec succès. Profil actif : {0}, Total propriétés : {1}", 
+                       new Object[]{activeProfile, mergedConfig.size()});
             
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Erreur lors du chargement des configurations", e);
+            throw new RuntimeException("Échec du chargement de la configuration", e);
         }
     }
     
     /**
-     * Charge un fichier de configuration spécifique.
+     * Charge les configurations depuis le classpath.
      */
-    private void loadConfigFile(String name, String path) {
+    private void loadClasspathConfigurations() {
+        // Charger les fichiers de configuration techniques
+        loadClasspathFile("config/avatar.properties");
+        loadClasspathFile("config/phoneme-viseme-mapping.properties");
+    }
+    
+    /**
+     * Charge un fichier de configuration depuis le classpath.
+     */
+    private void loadClasspathFile(String path) {
         try {
-            if (path == null || path.trim().isEmpty()) {
-                LOGGER.log(Level.WARNING, "Chemin de configuration null ou vide pour: {0}", name);
-                configSources.put(name, new Properties()); // Configuration vide
-                return;
-            }
             ClassPathResource resource = new ClassPathResource(path);
             if (resource.exists()) {
                 Properties props = new Properties();
                 try (InputStream is = resource.getInputStream()) {
                     props.load(is);
-                    configSources.put(name, props);
-                    LOGGER.log(Level.INFO, "Configuration ''{0}'' chargée depuis {1}", new Object[]{name, path});
+                    // Ajouter avec une priorité plus basse (ne pas écraser les existantes)
+                    for (String key : props.stringPropertyNames()) {
+                        if (!mergedConfig.containsKey(key)) {
+                            mergedConfig.setProperty(key, props.getProperty(key));
+                        }
+                    }
+                    LOGGER.log(Level.INFO, "Configuration classpath chargée : {0} ({1} propriétés)", 
+                               new Object[]{path, props.size()});
                 }
             } else {
-                LOGGER.log(Level.WARNING, "Fichier de configuration non trouvé: {0}", path);
+                LOGGER.log(Level.WARNING, "Fichier de configuration classpath non trouvé : {0}", path);
             }
         } catch (IOException e) {
-            LOGGER.log(Level.WARNING, "Erreur lors du chargement de " + path, e);
+            LOGGER.log(Level.WARNING, "Erreur lors du chargement du fichier classpath : " + path, e);
         }
     }
     
     /**
-     * Fusionne toutes les configurations dans une seule Properties.
+     * Charge un fichier de configuration externe.
      */
-    private void mergeConfigurations() {
-        mergedConfig.clear();
-        for (Properties props : configSources.values()) {
-            mergedConfig.putAll(props);
+    private void loadExternalConfiguration(String filePath) {
+        Path path = Paths.get(filePath);
+        if (!Files.exists(path)) {
+            LOGGER.log(Level.WARNING, "Fichier de configuration externe non trouvé : {0}", filePath);
+            return;
+        }
+        
+        try {
+            Properties props = new Properties();
+            try (InputStream is = Files.newInputStream(path)) {
+                props.load(is);
+                // Écraser les propriétés existantes (priorité plus haute)
+                mergedConfig.putAll(props);
+                LOGGER.log(Level.INFO, "Configuration externe chargée : {0} ({1} propriétés)", 
+                           new Object[]{filePath, props.size()});
+            }
+        } catch (IOException e) {
+            LOGGER.log(Level.SEVERE, "Erreur lors du chargement du fichier externe : " + filePath, e);
+            throw new RuntimeException("Impossible de charger le fichier de configuration : " + filePath, e);
+        }
+    }
+    
+    /**
+     * Applique les propriétés système qui commencent par "angel."
+     */
+    private void applySystemProperties() {
+        int count = 0;
+        for (String key : System.getProperties().stringPropertyNames()) {
+            if (key.startsWith("angel.") || key.startsWith("spring.") || key.startsWith("logging.")) {
+                mergedConfig.setProperty(key, System.getProperty(key));
+                count++;
+            }
+        }
+        if (count > 0) {
+            LOGGER.log(Level.INFO, "Propriétés système appliquées : {0}", count);
         }
     }
     
@@ -262,6 +375,13 @@ public class ConfigManager {
     }
     
     /**
+     * Obtient le profil actif.
+     */
+    public String getActiveProfile() {
+        return activeProfile;
+    }
+    
+    /**
      * Obtient toutes les configurations sous forme de Map pour l'API.
      */
     public Map<String, Object> getAllConfigAsMap() {
@@ -315,8 +435,29 @@ public class ConfigManager {
     public Map<String, Object> getConfigStats() {
         Map<String, Object> stats = new HashMap<>();
         stats.put("totalProperties", mergedConfig.size());
-        stats.put("configSources", configSources.size());
-        stats.put("sourceNames", configSources.keySet());
+        stats.put("activeProfile", activeProfile);
+        stats.put("loadedSources", getLoadedSources());
         return stats;
+    }
+    
+    /**
+     * Obtient la liste des sources de configuration chargées.
+     */
+    private List<String> getLoadedSources() {
+        List<String> sources = new ArrayList<>();
+        
+        // Vérifier les fichiers externes
+        if (Files.exists(Paths.get("config/application.properties"))) {
+            sources.add("config/application.properties");
+        }
+        if (!"default".equals(activeProfile) && Files.exists(Paths.get("config/application-" + activeProfile + ".properties"))) {
+            sources.add("config/application-" + activeProfile + ".properties");
+        }
+        
+        // Ajouter les sources classpath
+        sources.add("classpath:config/avatar.properties");
+        sources.add("classpath:config/phoneme-viseme-mapping.properties");
+        
+        return sources;
     }
 }
