@@ -3,8 +3,8 @@ package com.angel.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.beans.factory.annotation.PostConstruct;
 
-import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
@@ -77,6 +77,7 @@ public class ConfigManager {
         try {
             if (path == null || path.trim().isEmpty()) {
                 LOGGER.log(Level.WARNING, "Chemin de configuration null ou vide pour: {0}", name);
+                configSources.put(name, new Properties());
                 return;
             }
             
