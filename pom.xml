@@ -9,7 +9,7 @@
     <version>1.0.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
-    <name>Angel Virtual Assistant</name>
+    <n>Angel Virtual Assistant</n>
     <description>Un assistant virtuel intelligent qui propose des activités en fonction de la détection d'activités de l'utilisateur</description>
 
     <properties>
@@ -48,6 +48,7 @@
             <artifactId>spring-boot-starter-websocket</artifactId>
             <version>${spring-boot.version}</version>
         </dependency>
+
         <!-- Jakarta Annotations (pour @PostConstruct, @PreDestroy, etc.) -->
         <dependency>
             <groupId>jakarta.annotation</groupId>

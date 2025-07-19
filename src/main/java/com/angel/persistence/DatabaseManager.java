@@ -2,6 +2,10 @@ package com.angel.persistence;
 
 import com.angel.config.ConfigManager;
 import com.angel.util.LogUtil;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -14,20 +18,28 @@ import java.util.logging.Logger;
  * Gestionnaire de base de données qui gère la connexion et l'initialisation
  * de la base de données H2.
  */
+@Component
 public class DatabaseManager {
 
     private static final Logger LOGGER = LogUtil.getLogger(DatabaseManager.class);
     
-    private final ConfigManager configManager;
+    @Autowired
+    private ConfigManager configManager;
+    
     private Connection connection;
     
     /**
-     * Constructeur avec injection du gestionnaire de configuration.
-     * 
-     * @param configManager Le gestionnaire de configuration
+     * Constructeur par défaut pour Spring.
      */
-    public DatabaseManager(ConfigManager configManager) {
-        this.configManager = configManager;
+    public DatabaseManager() {
+        // L'initialisation se fait dans @PostConstruct
+    }
+    
+    /**
+     * Initialise la base de données après injection des dépendances.
+     */
+    @PostConstruct
+    public void initialize() {
         initializeDatabase();
     }
     
@@ -37,12 +49,13 @@ public class DatabaseManager {
     private void initializeDatabase() {
         try {
             // Charger le driver H2
-            Class.forName(configManager.getString("database.driver"));
+            String driver = configManager.getString("database.driver", "org.h2.Driver");
+            Class.forName(driver);
             
             // Établir la connexion
-            String url = configManager.getString("database.url");
-            String username = configManager.getString("database.username");
-            String password = configManager.getString("database.password");
+            String url = configManager.getString("database.url", "jdbc:h2:file:./angel-db");
+            String username = configManager.getString("database.username", "angel");
+            String password = configManager.getString("database.password", "angel123");
             
             connection = DriverManager.getConnection(url, username, password);
             
@@ -142,6 +155,7 @@ public class DatabaseManager {
     /**
      * Ferme la connexion à la base de données.
      */
+    @PreDestroy
     public void closeConnection() {
         if (connection != null) {
             try {
