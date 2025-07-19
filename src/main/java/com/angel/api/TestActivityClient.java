@@ -31,7 +31,7 @@ public class TestActivityClient {
     private String currentScenario;
     
     /**
-     * Démarre la simulation d'activités.
+     * Démarre la simulation d'activités avec un scénario.
      */
     public CompletableFuture<Void> startSimulation(String scenarioName) {
         return CompletableFuture.runAsync(() -> {
@@ -69,33 +69,35 @@ public class TestActivityClient {
     }
     
     /**
-     * Arrête la simulation d'activités.
-     */
-    public void stopSimulation() {
-        logger.info("Arrêt de la simulation");
-        this.isActive = false;
-        this.currentScenario = null;
-        
-        if (activitySimulator != null) {
-            activitySimulator.stopSimulation();
-        }
-        
-        if (scenarioManager != null) {
-            scenarioManager.stopCurrentScenario();
-        }
-    }
-    
-    /**
-     * Arrête la simulation (version simple).
+     * Arrête la simulation d'activités (version boolean).
      */
     public boolean stopSimulation() {
         try {
-            stopSimulation();
+            logger.info("Arrêt de la simulation");
+            this.isActive = false;
+            this.currentScenario = null;
+            
+            if (activitySimulator != null) {
+                activitySimulator.stopSimulation();
+            }
+            
+            if (scenarioManager != null) {
+                scenarioManager.stopCurrentScenario();
+            }
             return true;
         } catch (Exception e) {
             logger.severe("Erreur lors de l'arrêt de la simulation: " + e.getMessage());
             return false;
         }
+    }
+    
+    /**
+     * Shutdown complet du service.
+     */
+    public void shutdown() {
+        logger.info("Arrêt complet du TestActivityClient");
+        stopSimulation();
+        // Nettoyage supplémentaire si nécessaire
     }
     
     /**
