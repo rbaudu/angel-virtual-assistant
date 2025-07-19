@@ -1,13 +1,13 @@
 package com.angel.test;
 
-import com.angel.api.dto.TestActivityDTO;
-import com.angel.config.TestModeConfig;
+import com.angel.api.dto.ActivityDTO;
 import com.angel.model.Activity;
 import com.angel.util.LogUtil;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.Executors;
@@ -27,13 +27,15 @@ public class ActivitySimulator {
     
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private final Random random = new Random();
-    private final TestModeConfig config;
-    private final ScenarioManager scenarioManager;
+    private final List<ActivityDTO> activityBuffer = new ArrayList<>();
     
-    private TestActivityDTO currentActivity;
+    private ActivityDTO currentActivity;
     private boolean running = false;
     private ScheduledFuture<?> currentTask;
     private int sequentialIndex = 0;
+    private double speedMultiplier = 1.0;
+    private boolean noiseEnabled = true;
+    private int totalActivitiesGenerated = 0;
     
     // Activités disponibles pour le mode aléatoire
     private final Activity[] availableActivities = {
@@ -43,18 +45,15 @@ public class ActivitySimulator {
         Activity.CONVERSING, Activity.MOVING, Activity.PUTTING_AWAY
     };
     
-    public ActivitySimulator(TestModeConfig config, ScenarioManager scenarioManager) {
-        this.config = config;
-        this.scenarioManager = scenarioManager;
+    public ActivitySimulator() {
         this.currentActivity = createDefaultActivity();
-        
-        logger.info("ActivitySimulator initialisé avec mode: " + config.getActivities().getSequence());
+        logger.info("ActivitySimulator initialisé");
     }
     
     /**
      * Démarre la simulation d'activités.
      */
-    public synchronized void start() {
+    public synchronized void startSimulation() {
         if (!running) {
             running = true;
             logger.info("Démarrage de la simulation d'activités");
@@ -65,7 +64,7 @@ public class ActivitySimulator {
     /**
      * Arrête la simulation d'activités.
      */
-    public synchronized void stop() {
+    public synchronized void stopSimulation() {
         if (running) {
             running = false;
             if (currentTask != null) {
@@ -78,25 +77,53 @@ public class ActivitySimulator {
     /**
      * Retourne l'activité courante.
      */
-    public TestActivityDTO getCurrentActivity() {
+    public ActivityDTO getCurrentActivity() {
         return currentActivity;
     }
     
     /**
-     * Définit manuellement l'activité courante (pour contrôle manuel).
+     * Définit manuellement l'activité courante.
      */
-    public void setCurrentActivity(String activityName, double confidence) {
-        try {
-            Activity activity = Activity.valueOf(activityName.toUpperCase());
-            this.currentActivity = new TestActivityDTO(activity, confidence, System.currentTimeMillis());
+    public void setCurrentActivity(ActivityDTO activity) {
+        this.currentActivity = activity;
+        logger.info("Activité définie manuellement: " + activity.getActivityType());
+    }
+    
+    /**
+     * Ajoute une activité manuelle au buffer.
+     */
+    public void addManualActivity(ActivityDTO activity) {
+        synchronized (activityBuffer) {
+            activityBuffer.add(activity);
+            totalActivitiesGenerated++;
+            logger.info("Activité manuelle ajoutée au buffer: " + activity.getActivityType());
+        }
+    }
+    
+    /**
+     * Récupère les activités pour une période donnée.
+     */
+    public List<ActivityDTO> getActivitiesForPeriod(LocalDateTime start, LocalDateTime end) {
+        synchronized (activityBuffer) {
+            long startMillis = start.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
+            long endMillis = end.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
             
-            if (config.getLogging().isLogActivities()) {
-                logger.info(String.format("Activité définie manuellement: %s (confiance: %.2f)", 
-                    activity.getFrenchName(), confidence));
-            }
-        } catch (IllegalArgumentException e) {
-            logger.warning("Activité inconnue: " + activityName);
-            throw new IllegalArgumentException("Activité non reconnue: " + activityName);
+            return activityBuffer.stream()
+                .filter(activity -> activity.getTimestamp() >= startMillis && activity.getTimestamp() <= endMillis)
+                .toList();
+        }
+    }
+    
+    /**
+     * Récupère les dernières activités.
+     */
+    public List<ActivityDTO> getLatestActivities(int count) {
+        synchronized (activityBuffer) {
+            int size = activityBuffer.size();
+            if (size == 0) return List.of();
+            
+            int fromIndex = Math.max(0, size - count);
+            return new ArrayList<>(activityBuffer.subList(fromIndex, size));
         }
     }
     
@@ -108,14 +135,61 @@ public class ActivitySimulator {
     }
     
     /**
+     * Définit le multiplicateur de vitesse.
+     */
+    public void setSpeedMultiplier(double speedMultiplier) {
+        this.speedMultiplier = Math.max(0.1, Math.min(10.0, speedMultiplier));
+        logger.info("Multiplicateur de vitesse défini à: " + this.speedMultiplier);
+    }
+    
+    /**
+     * Active/désactive le bruit dans la simulation.
+     */
+    public void setNoiseEnabled(boolean enabled) {
+        this.noiseEnabled = enabled;
+        logger.info("Bruit " + (enabled ? "activé" : "désactivé"));
+    }
+    
+    /**
+     * Retourne le nombre total d'activités générées.
+     */
+    public int getTotalActivitiesGenerated() {
+        return totalActivitiesGenerated;
+    }
+    
+    /**
+     * Retourne la taille du buffer.
+     */
+    public int getBufferSize() {
+        synchronized (activityBuffer) {
+            return activityBuffer.size();
+        }
+    }
+    
+    /**
+     * Calcule la confiance moyenne.
+     */
+    public double getAverageConfidence() {
+        synchronized (activityBuffer) {
+            if (activityBuffer.isEmpty()) return 0.0;
+            
+            return activityBuffer.stream()
+                .mapToDouble(ActivityDTO::getConfidence)
+                .average()
+                .orElse(0.0);
+        }
+    }
+    
+    /**
      * Retourne les statistiques de la simulation.
      */
-    public SimulationStats getStats() {
+    public SimulationStats getSimulationStats() {
         return new SimulationStats(
             running,
-            currentActivity,
+            running ? "RUNNING" : "STOPPED",
+            currentActivity != null ? currentActivity.getActivityType() : "NONE",
             calculateNextInterval(),
-            config.getActivities().getSequence()
+            System.currentTimeMillis()
         );
     }
     
@@ -127,32 +201,33 @@ public class ActivitySimulator {
         
         long interval = calculateNextInterval();
         
-        if (config.getLogging().isLogTransitions()) {
-            logger.info(String.format("Prochaine activité dans %d ms", interval));
-        }
-        
         currentTask = scheduler.schedule(this::generateNextActivity, interval, TimeUnit.MILLISECONDS);
     }
     
     /**
-     * Génère la prochaine activité selon la configuration.
+     * Génère la prochaine activité.
      */
     private void generateNextActivity() {
         if (!running) return;
         
         try {
-            Activity nextActivity = selectNextActivity();
+            Activity nextActivity = getRandomActivity();
             double confidence = generateConfidence();
             
-            TestActivityDTO previousActivity = currentActivity;
-            this.currentActivity = new TestActivityDTO(nextActivity, confidence, System.currentTimeMillis());
+            ActivityDTO newActivity = new ActivityDTO(nextActivity, confidence, System.currentTimeMillis());
+            this.currentActivity = newActivity;
             
-            if (config.getLogging().isLogActivities()) {
-                logger.info(String.format("Transition: %s -> %s (confiance: %.2f)",
-                    previousActivity != null ? previousActivity.getActivity().getFrenchName() : "aucune",
-                    nextActivity.getFrenchName(),
-                    confidence));
+            synchronized (activityBuffer) {
+                activityBuffer.add(newActivity);
+                totalActivitiesGenerated++;
+                
+                // Limiter la taille du buffer (garder les 1000 dernières activités)
+                if (activityBuffer.size() > 1000) {
+                    activityBuffer.remove(0);
+                }
             }
+            
+            logger.fine("Nouvelle activité générée: " + nextActivity.name() + " (confiance: " + confidence + ")");
             
             // Programme la prochaine activité
             scheduleNextActivityChange();
@@ -165,25 +240,6 @@ public class ActivitySimulator {
     }
     
     /**
-     * Sélectionne la prochaine activité selon le mode configuré.
-     */
-    private Activity selectNextActivity() {
-        String sequence = config.getActivities().getSequence().toLowerCase();
-        
-        switch (sequence) {
-            case "scenario":
-                return scenarioManager.getNextActivityFromScenario();
-            case "sequential":
-                return getNextSequentialActivity();
-            case "scheduled":
-                return getScheduledActivity();
-            case "random":
-            default:
-                return getRandomActivity();
-        }
-    }
-    
-    /**
      * Retourne une activité aléatoire.
      */
     private Activity getRandomActivity() {
@@ -191,78 +247,47 @@ public class ActivitySimulator {
     }
     
     /**
-     * Retourne la prochaine activité en mode séquentiel.
-     */
-    private Activity getNextSequentialActivity() {
-        Activity activity = availableActivities[sequentialIndex % availableActivities.length];
-        sequentialIndex++;
-        return activity;
-    }
-    
-    /**
-     * Retourne une activité basée sur l'heure de la journée.
-     */
-    private Activity getScheduledActivity() {
-        if (!config.getSchedule().isFollowDailyPattern()) {
-            return getRandomActivity();
-        }
-        
-        LocalTime now = LocalTime.now();
-        List<String> patterns;
-        
-        if (now.isBefore(LocalTime.of(12, 0))) {
-            patterns = config.getSchedule().getPatterns().get("morning");
-        } else if (now.isBefore(LocalTime.of(18, 0))) {
-            patterns = config.getSchedule().getPatterns().get("afternoon");
-        } else {
-            patterns = config.getSchedule().getPatterns().get("evening");
-        }
-        
-        if (patterns != null && !patterns.isEmpty()) {
-            String activityName = patterns.get(random.nextInt(patterns.size()));
-            try {
-                return Activity.valueOf(activityName);
-            } catch (IllegalArgumentException e) {
-                logger.warning("Activité programmée inconnue: " + activityName);
-            }
-        }
-        
-        return getRandomActivity();
-    }
-    
-    /**
      * Calcule l'intervalle jusqu'au prochain changement d'activité.
      */
     private long calculateNextInterval() {
-        long baseInterval = config.getSimulation().getInterval();
-        double randomness = config.getSimulation().getRandomness();
+        long baseInterval = 30000; // 30 secondes par défaut
         
-        // Applique un facteur d'aléa à l'intervalle
-        double factor = 1.0 + (random.nextDouble() - 0.5) * 2 * randomness;
-        return Math.round(baseInterval * factor);
+        // Appliquer le multiplicateur de vitesse
+        baseInterval = Math.round(baseInterval / speedMultiplier);
+        
+        // Ajouter du bruit si activé
+        if (noiseEnabled) {
+            double randomness = 0.3; // ±30% de variation
+            double factor = 1.0 + (random.nextDouble() - 0.5) * 2 * randomness;
+            baseInterval = Math.round(baseInterval * factor);
+        }
+        
+        return Math.max(1000, baseInterval); // Minimum 1 seconde
     }
     
     /**
-     * Génère un niveau de confiance aléatoire dans les limites configurées.
+     * Génère un niveau de confiance aléatoire.
      */
     private double generateConfidence() {
-        double min = config.getActivities().getTransitions().getConfidence().getMin();
-        double max = config.getActivities().getTransitions().getConfidence().getMax();
-        return min + random.nextDouble() * (max - min);
+        double base = 0.75; // Confiance de base
+        double variation = noiseEnabled ? 0.25 : 0.1; // Variation selon le bruit
+        
+        double confidence = base + (random.nextDouble() - 0.5) * 2 * variation;
+        return Math.max(0.5, Math.min(0.98, confidence));
     }
     
     /**
      * Crée une activité par défaut.
      */
-    private TestActivityDTO createDefaultActivity() {
-        return new TestActivityDTO(Activity.WAITING, 0.8, System.currentTimeMillis());
+    private ActivityDTO createDefaultActivity() {
+        return new ActivityDTO(Activity.WAITING, 0.8, System.currentTimeMillis());
     }
     
     /**
      * Nettoie les ressources lors de l'arrêt.
      */
     public void shutdown() {
-        stop();
+        stopSimulation();
         scheduler.shutdown();
         try {
             if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
@@ -272,6 +297,7 @@ public class ActivitySimulator {
             scheduler.shutdownNow();
             Thread.currentThread().interrupt();
         }
+        logger.info("ActivitySimulator arrêté");
     }
     
     /**
@@ -279,24 +305,24 @@ public class ActivitySimulator {
      */
     public static class SimulationStats {
         private final boolean running;
-        private final TestActivityDTO currentActivity;
-        private final long nextChangeIn;
         private final String mode;
-        private final LocalDateTime timestamp;
+        private final String currentActivity;
+        private final long nextChangeIn;
+        private final long timestamp;
         
-        public SimulationStats(boolean running, TestActivityDTO currentActivity, long nextChangeIn, String mode) {
+        public SimulationStats(boolean running, String mode, String currentActivity, long nextChangeIn, long timestamp) {
             this.running = running;
+            this.mode = mode;
             this.currentActivity = currentActivity;
             this.nextChangeIn = nextChangeIn;
-            this.mode = mode;
-            this.timestamp = LocalDateTime.now();
+            this.timestamp = timestamp;
         }
         
         // Getters
         public boolean isRunning() { return running; }
-        public TestActivityDTO getCurrentActivity() { return currentActivity; }
-        public long getNextChangeIn() { return nextChangeIn; }
         public String getMode() { return mode; }
-        public LocalDateTime getTimestamp() { return timestamp; }
+        public String getCurrentActivity() { return currentActivity; }
+        public long getNextChangeIn() { return nextChangeIn; }
+        public long getTimestamp() { return timestamp; }
     }
 }
