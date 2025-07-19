@@ -48,7 +48,7 @@ public class TestModeService {
         try {
             logger.info("Initialisation du service de mode test...");
             
-            // Vérifier si le mode test est configuré dans la configuration principale
+            // Vérifier si le mode test est configuré
             if (isTestModeConfigured()) {
                 loadTestConfiguration();
                 initializeTestComponents();
@@ -75,14 +75,42 @@ public class TestModeService {
     
     /**
      * Vérifie si le mode test est configuré.
+     * Compatible avec angel-launcher.sh qui utilise -Dangel.profile=test
      */
     private boolean isTestModeConfigured() {
         try {
-            // Vérifier si le système est en mode test
+            // Méthode 1: Vérifier le profil Angel (utilisé par angel-launcher.sh)
+            String angelProfile = System.getProperty("angel.profile");
+            if ("test".equalsIgnoreCase(angelProfile)) {
+                logger.info("Mode test détecté via angel.profile=test");
+                return true;
+            }
+            
+            // Méthode 2: Vérifier la propriété directe de test
+            String testEnabled = System.getProperty("angel.test.enabled");
+            if ("true".equalsIgnoreCase(testEnabled)) {
+                logger.info("Mode test détecté via angel.test.enabled=true");
+                return true;
+            }
+            
+            // Méthode 3: Vérifier la variable d'environnement
+            String envTestEnabled = System.getenv("ANGEL_TEST_ENABLED");
+            if ("true".equalsIgnoreCase(envTestEnabled)) {
+                logger.info("Mode test détecté via variable d'environnement ANGEL_TEST_ENABLED=true");
+                return true;
+            }
+            
+            // Méthode 4: Vérifier la configuration JSON
             String systemMode = configManager.getSystemProperty("mode", "production");
             boolean testModeInConfig = configManager.getBooleanProperty("system.testMode.enabled", false);
             
-            return "test".equalsIgnoreCase(systemMode) || testModeInConfig;
+            if ("test".equalsIgnoreCase(systemMode) || testModeInConfig) {
+                logger.info("Mode test détecté via configuration JSON");
+                return true;
+            }
+            
+            return false;
+            
         } catch (Exception e) {
             logger.warning("Erreur lors de la vérification de la configuration de test: " + e.getMessage());
             return false;
@@ -93,8 +121,15 @@ public class TestModeService {
      * Charge la configuration du mode test.
      */
     private void loadTestConfiguration() throws IOException {
-        String configPath = configManager.getStringProperty("system.testMode.configFile", 
-            "config/test/test-mode-config.json");
+        String configPath = "config/test/test-mode-config.json";
+        
+        // Essayer de récupérer le chemin depuis la configuration
+        try {
+            configPath = configManager.getStringProperty("system.testMode.configFile", configPath);
+        } catch (Exception e) {
+            // Utiliser le chemin par défaut si erreur
+            logger.info("Utilisation du chemin de configuration par défaut: " + configPath);
+        }
         
         logger.info("Chargement de la configuration de test depuis: " + configPath);
         
