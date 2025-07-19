@@ -44,6 +44,13 @@ public enum Activity {
     }
 
     /**
+     * Alias pour getDescription() pour compatibilité avec le code de test.
+     */
+    public String getFrenchName() {
+        return description;
+    }
+
+    /**
      * Vérifie si l'activité courante est compatible avec les propositions.
      * Les activités comme UNKNOWN, SLEEPING ou certaines activités engageantes
      * ne sont pas compatibles avec des propositions.
