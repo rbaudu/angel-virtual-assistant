@@ -7,7 +7,7 @@
 # Configuration par défaut
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$SCRIPT_DIR"
-CONFIG_FILE="$PROJECT_DIR/config/angel-config.json"
+CONFIG_FILE="$PROJECT_DIR/config/application.properties"
 LOG_DIR="$PROJECT_DIR/logs"
 PID_FILE="$PROJECT_DIR/angel.pid"
 JAVA_OPTS=""
@@ -63,7 +63,7 @@ COMMANDS:
     help            Affiche cette aide
 
 OPTIONS:
-    -c, --config FILE       Fichier de configuration (défaut: config/angel-config.json)
+    -c, --config FILE       Fichier de configuration (défaut: config/application.properties)
     -m, --memory SIZE       Mémoire allouée (défaut: 512m)
     -p, --profile PROFILE   Profil d'exécution (dev|prod|test, défaut: default)
     -d, --debug             Active le mode debug sur le port 5005
@@ -75,6 +75,7 @@ OPTIONS:
 EXEMPLES:
     $0 start                        # Démarre l'application
     $0 start -m 1g -p prod          # Démarre avec 1GB de RAM en mode production
+    $0 start -p test                # Démarre en mode test
     $0 start -d                     # Démarre en mode debug
     $0 start -b                     # Démarre en mode daemon
     $0 stop                         # Arrête l'application
@@ -85,8 +86,14 @@ EXEMPLES:
 PROFILS:
     dev         Mode développement (logs verbeux, hot reload)
     prod        Mode production (logs optimisés, performances)
-    test        Mode test (base de données en mémoire)
+    test        Mode test (base de données en mémoire, simulation accélérée)
     default     Mode par défaut
+
+FICHIERS DE CONFIGURATION:
+    config/application.properties           # Configuration par défaut
+    config/application-test.properties      # Configuration mode test
+    config/application-prod.properties      # Configuration mode production
+    config/application-dev.properties       # Configuration mode développement
 
 GESTION DES PROCESSUS:
     Le script gère automatiquement le fichier PID et vérifie si l'application
@@ -124,11 +131,21 @@ check_prerequisites() {
     # Créer les répertoires nécessaires
     mkdir -p "$LOG_DIR"
     
-    # Vérifier le fichier de configuration
+    # Vérifier le fichier de configuration principal
     if [[ ! -f "$CONFIG_FILE" ]]; then
         print_warning "Fichier de configuration non trouvé: $CONFIG_FILE"
         print_info "Création d'un fichier de configuration par défaut..."
         create_default_config
+    fi
+    
+    # Vérifier le fichier de configuration spécifique au profil
+    if [[ "$PROFILE" != "default" ]]; then
+        local profile_config="$PROJECT_DIR/config/application-$PROFILE.properties"
+        if [[ ! -f "$profile_config" ]]; then
+            print_warning "Fichier de configuration pour le profil '$PROFILE' non trouvé: $profile_config"
+        else
+            print_info "Configuration profil trouvée: $profile_config"
+        fi
     fi
 }
 
@@ -136,37 +153,37 @@ check_prerequisites() {
 create_default_config() {
     mkdir -p "$(dirname "$CONFIG_FILE")"
     cat > "$CONFIG_FILE" << 'EOF'
-{
-  "system": {
-    "name": "Angel Companion",
-    "version": "1.0.0",
-    "language": "fr",
-    "wakeWord": "Angel"
-  },
-  "api": {
-    "angelServerUrl": "http://localhost:8080/api",
-    "pollingInterval": 30000,
-    "timeout": 5000
-  },
-  "avatar": {
-    "enabled": true,
-    "displayTime": 30000,
-    "transitionEffect": "fade",
-    "defaultMood": "neutral"
-  },
-  "database": {
-    "url": "jdbc:h2:file:./angel-db",
-    "username": "angel",
-    "password": "angel123",
-    "driver": "org.h2.Driver"
-  },
-  "logging": {
-    "level": "INFO",
-    "filePath": "./logs/angel.log",
-    "rotationSize": "10MB",
-    "maxFiles": 5
-  }
-}
+# Configuration Angel Virtual Assistant par défaut
+
+# Application
+app.name=Angel Companion
+app.version=1.0.0
+system.name=Angel Companion
+system.language=fr
+system.wake-word=Angel
+
+# API
+api.angel-server-url=http://localhost:8080/api
+api.polling-interval=30000
+api.timeout=5000
+
+# Base de données
+database.url=jdbc:h2:file:./angel-db
+database.driver=org.h2.Driver
+database.username=angel
+database.password=angel123
+
+# Avatar
+avatar.enabled=true
+avatar.display-time=30000
+avatar.transition-effect=fade
+avatar.default-mood=neutral
+
+# Logging
+logging.level=INFO
+logging.file-path=./logs/angel.log
+logging.rotation-size=10MB
+logging.max-files=5
 EOF
     print_success "Fichier de configuration créé: $CONFIG_FILE"
 }
@@ -193,15 +210,21 @@ show_status() {
     if check_status; then
         local pid=$(cat "$PID_FILE")
         print_success "Angel Virtual Assistant est en cours d'exécution (PID: $pid)"
+        print_info "Profil actif: $PROFILE"
         
         # Afficher des informations sur le processus
         echo "Détails du processus:"
         ps -p "$pid" -o pid,ppid,cmd,etime,pmem,pcpu 2>/dev/null || true
         
         # Afficher les dernières lignes de log
-        if [[ -f "$LOG_DIR/angel.log" ]]; then
+        local log_file="$LOG_DIR/angel.log"
+        if [[ "$PROFILE" == "test" ]]; then
+            log_file="$LOG_DIR/angel-test.log"
+        fi
+        
+        if [[ -f "$log_file" ]]; then
             echo -e "\nDernières lignes de log:"
-            tail -n 5 "$LOG_DIR/angel.log"
+            tail -n 5 "$log_file"
         fi
     else
         print_warning "Angel Virtual Assistant n'est pas en cours d'exécution"
@@ -247,24 +270,30 @@ configure_java_opts() {
     # Options de base
     JAVA_OPTS="-Xms$MEMORY_XMS -Xmx$MEMORY_XMX"
     
-    # Ajouter le fichier de configuration
-    JAVA_OPTS="$JAVA_OPTS -Dangel.config.path=$CONFIG_FILE"
+    # Passer le profil via les arguments du programme ET les propriétés système
+    if [[ "$PROFILE" != "default" ]]; then
+        JAVA_OPTS="$JAVA_OPTS -Dspring.profiles.active=$PROFILE"
+        # Ajouter aussi aux arguments du programme pour le ConfigManager
+        PROGRAM_ARGS="-p $PROFILE"
+    else
+        PROGRAM_ARGS=""
+    fi
     
     # Configuration selon le profil
     case $PROFILE in
         "dev")
-            JAVA_OPTS="$JAVA_OPTS -Dangel.profile=dev"
-            JAVA_OPTS="$JAVA_OPTS -Dlogging.level=DEBUG"
+            JAVA_OPTS="$JAVA_OPTS -Dlogging.level.com.angel=DEBUG"
+            JAVA_OPTS="$JAVA_OPTS -Dangel.dev.debug-mode=true"
             ;;
         "prod")
-            JAVA_OPTS="$JAVA_OPTS -Dangel.profile=prod"
-            JAVA_OPTS="$JAVA_OPTS -Dlogging.level=INFO"
+            JAVA_OPTS="$JAVA_OPTS -Dlogging.level.root=INFO"
             JAVA_OPTS="$JAVA_OPTS -XX:+UseG1GC -XX:+UseStringDeduplication"
+            JAVA_OPTS="$JAVA_OPTS -Dangel.security.enabled=true"
             ;;
         "test")
-            JAVA_OPTS="$JAVA_OPTS -Dangel.profile=test"
-            JAVA_OPTS="$JAVA_OPTS -Dlogging.level=DEBUG"
-            JAVA_OPTS="$JAVA_OPTS -Ddatabase.url=jdbc:h2:mem:testdb"
+            JAVA_OPTS="$JAVA_OPTS -Dlogging.level.com.angel=TRACE"
+            JAVA_OPTS="$JAVA_OPTS -Dangel.test.enabled=true"
+            JAVA_OPTS="$JAVA_OPTS -Dangel.test.auto-start=true"
             ;;
     esac
     
@@ -277,6 +306,11 @@ configure_java_opts() {
     # Mode verbose
     if [[ $VERBOSE == true ]]; then
         JAVA_OPTS="$JAVA_OPTS -verbose:gc -XX:+PrintGCDetails"
+    fi
+    
+    print_info "Options JVM: $JAVA_OPTS"
+    if [[ -n "$PROGRAM_ARGS" ]]; then
+        print_info "Arguments programme: $PROGRAM_ARGS"
     fi
 }
 
@@ -309,8 +343,13 @@ start_application() {
         # Mode daemon
         print_info "Démarrage en mode daemon..."
         
-        nohup java $JAVA_OPTS -jar "$jar_file" \
-            > "$LOG_DIR/angel.out" 2> "$LOG_DIR/angel.err" &
+        if [[ -n "$PROGRAM_ARGS" ]]; then
+            nohup java $JAVA_OPTS -jar "$jar_file" $PROGRAM_ARGS \
+                > "$LOG_DIR/angel.out" 2> "$LOG_DIR/angel.err" &
+        else
+            nohup java $JAVA_OPTS -jar "$jar_file" \
+                > "$LOG_DIR/angel.out" 2> "$LOG_DIR/angel.err" &
+        fi
         
         local pid=$!
         echo $pid > "$PID_FILE"
@@ -320,20 +359,28 @@ start_application() {
         
         if check_status; then
             print_success "Angel Virtual Assistant démarré en mode daemon (PID: $pid)"
+            print_info "Profil: $PROFILE"
             print_info "Logs disponibles dans: $LOG_DIR/angel.out et $LOG_DIR/angel.err"
         else
             print_error "Échec du démarrage"
+            cat "$LOG_DIR/angel.err" 2>/dev/null || true
             exit 1
         fi
     else
         # Mode interactif
         print_info "Démarrage en mode interactif..."
+        print_info "Profil: $PROFILE"
         print_info "Utilisez Ctrl+C pour arrêter l'application"
         
         # Créer un gestionnaire de signal pour nettoyer le fichier PID
         trap 'rm -f "$PID_FILE"; exit' INT TERM
         
-        java $JAVA_OPTS -jar "$jar_file" &
+        if [[ -n "$PROGRAM_ARGS" ]]; then
+            java $JAVA_OPTS -jar "$jar_file" $PROGRAM_ARGS &
+        else
+            java $JAVA_OPTS -jar "$jar_file" &
+        fi
+        
         local pid=$!
         echo $pid > "$PID_FILE"
         
@@ -386,11 +433,18 @@ restart_application() {
 show_logs() {
     local log_file="$LOG_DIR/angel.log"
     
+    # Choisir le bon fichier de log selon le profil
+    if [[ "$PROFILE" == "test" ]]; then
+        log_file="$LOG_DIR/angel-test.log"
+    fi
+    
     if [[ -f "$log_file" ]]; then
-        print_info "Affichage des logs (Ctrl+C pour quitter)..."
+        print_info "Affichage des logs: $log_file (Ctrl+C pour quitter)..."
         tail -f "$log_file"
     else
         print_warning "Fichier de log non trouvé: $log_file"
+        print_info "Logs disponibles:"
+        ls -la "$LOG_DIR"/*.log 2>/dev/null || print_info "Aucun fichier de log trouvé"
     fi
 }
 
