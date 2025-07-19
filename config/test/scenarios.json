@@ -1,0 +1,184 @@
+{
+  "scenarios": {
+    "default": {
+      "name": "Activités quotidiennes de base",
+      "description": "Scénario par défaut avec activités courantes aléatoires",
+      "activities": "RANDOM_FROM_ALL"
+    },
+    "morning_routine": {
+      "name": "Routine matinale",
+      "description": "Séquence typique d'activités du matin",
+      "activities": [
+        {
+          "activity": "WAKING_UP",
+          "duration": 600000,
+          "confidence": 0.9,
+          "description": "Réveil"
+        },
+        {
+          "activity": "WASHING",
+          "duration": 900000,
+          "confidence": 0.85,
+          "description": "Toilette matinale"
+        },
+        {
+          "activity": "EATING",
+          "duration": 1200000,
+          "confidence": 0.9,
+          "description": "Petit déjeuner"
+        },
+        {
+          "activity": "READING",
+          "duration": 1800000,
+          "confidence": 0.7,
+          "description": "Lecture des actualités"
+        }
+      ]
+    },
+    "work_day": {
+      "name": "Journée de travail",
+      "description": "Activités typiques d'une journée de télétravail",
+      "activities": [
+        {
+          "activity": "USING_SCREEN",
+          "duration": 3600000,
+          "confidence": 0.95,
+          "description": "Travail sur ordinateur"
+        },
+        {
+          "activity": "WAITING",
+          "duration": 300000,
+          "confidence": 0.6,
+          "description": "Pause"
+        },
+        {
+          "activity": "COOKING",
+          "duration": 1800000,
+          "confidence": 0.8,
+          "description": "Préparation déjeuner"
+        },
+        {
+          "activity": "EATING",
+          "duration": 1200000,
+          "confidence": 0.9,
+          "description": "Déjeuner"
+        }
+      ]
+    },
+    "evening_relaxation": {
+      "name": "Soirée détente",
+      "description": "Activités de relaxation en soirée",
+      "activities": [
+        {
+          "activity": "COOKING",
+          "duration": 2400000,
+          "confidence": 0.85,
+          "description": "Préparation dîner"
+        },
+        {
+          "activity": "EATING",
+          "duration": 1800000,
+          "confidence": 0.9,
+          "description": "Dîner"
+        },
+        {
+          "activity": "WATCHING_TV",
+          "duration": 3600000,
+          "confidence": 0.95,
+          "description": "Regarder la télévision"
+        },
+        {
+          "activity": "READING",
+          "duration": 2400000,
+          "confidence": 0.8,
+          "description": "Lecture avant coucher"
+        },
+        {
+          "activity": "GOING_TO_SLEEP",
+          "duration": 600000,
+          "confidence": 0.85,
+          "description": "Préparation au coucher"
+        }
+      ]
+    },
+    "cleaning_day": {
+      "name": "Journée ménage",
+      "description": "Séquence d'activités de nettoyage et rangement",
+      "activities": [
+        {
+          "activity": "CLEANING",
+          "duration": 2700000,
+          "confidence": 0.9,
+          "description": "Nettoyage principal"
+        },
+        {
+          "activity": "PUTTING_AWAY",
+          "duration": 1800000,
+          "confidence": 0.8,
+          "description": "Rangement"
+        },
+        {
+          "activity": "WAITING",
+          "duration": 600000,
+          "confidence": 0.6,
+          "description": "Pause"
+        },
+        {
+          "activity": "CLEANING",
+          "duration": 1800000,
+          "confidence": 0.85,
+          "description": "Finitions"
+        }
+      ]
+    },
+    "social_evening": {
+      "name": "Soirée sociale",
+      "description": "Soirée avec des activités sociales",
+      "activities": [
+        {
+          "activity": "COOKING",
+          "duration": 3600000,
+          "confidence": 0.8,
+          "description": "Préparation repas pour invités"
+        },
+        {
+          "activity": "CONVERSING",
+          "duration": 7200000,
+          "confidence": 0.95,
+          "description": "Discussion avec invités"
+        },
+        {
+          "activity": "EATING",
+          "duration": 2400000,
+          "confidence": 0.9,
+          "description": "Repas en commun"
+        },
+        {
+          "activity": "LISTENING_MUSIC",
+          "duration": 1800000,
+          "confidence": 0.85,
+          "description": "Écoute de musique"
+        }
+      ]
+    }
+  },
+  "globalSettings": {
+    "allowedActivities": [
+      "EATING",
+      "READING", 
+      "WATCHING_TV",
+      "COOKING",
+      "CLEANING",
+      "WAITING",
+      "USING_SCREEN",
+      "WASHING",
+      "WAKING_UP",
+      "GOING_TO_SLEEP",
+      "LISTENING_MUSIC",
+      "CONVERSING",
+      "MOVING",
+      "PUTTING_AWAY"
+    ],
+    "defaultConfidence": 0.75
+  }
+}

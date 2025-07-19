@@ -56,10 +56,27 @@ public class ScenarioManager {
     }
     
     /**
+     * Exécute un scénario donné.
+     */
+    public void executeScenario(String scenarioName) {
+        if (loadScenario(scenarioName)) {
+            logger.info("Exécution du scénario: " + scenarioName);
+        } else {
+            logger.warning("Impossible d'exécuter le scénario: " + scenarioName);
+            // Charger un scénario par défaut
+            loadScenario("default");
+        }
+    }
+    
+    /**
      * Sélectionne et démarre un scénario.
      */
     public boolean loadScenario(String scenarioId) {
-        if (scenarioData == null || !scenarioData.getScenarios().containsKey(scenarioId)) {
+        if (scenarioData == null) {
+            createDefaultScenarios();
+        }
+        
+        if (!scenarioData.getScenarios().containsKey(scenarioId)) {
             logger.warning("Scénario introuvable: " + scenarioId);
             return false;
         }
