@@ -7,8 +7,6 @@ import com.angel.util.LogUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
 import java.io.IOException;
 import java.util.logging.Logger;
 
@@ -42,8 +40,8 @@ public class TestModeService {
     
     /**
      * Initialise le service de mode test.
+     * Equivalent de @PostConstruct mais sans la dépendance javax.annotation
      */
-    @PostConstruct
     public void initialize() {
         try {
             logger.info("Initialisation du service de mode test...");
@@ -342,8 +340,8 @@ public class TestModeService {
     
     /**
      * Nettoie les ressources lors de l'arrêt.
+     * Equivalent de @PreDestroy mais sans la dépendance javax.annotation
      */
-    @PreDestroy
     public void cleanup() {
         logger.info("Nettoyage du service de mode test...");
         

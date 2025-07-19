@@ -1,6 +1,6 @@
 package com.angel.test;
 
-import com.angel.api.dto.ActivityDTO;
+import com.angel.api.dto.TestActivityDTO;
 import com.angel.config.TestModeConfig;
 import com.angel.model.Activity;
 import com.angel.util.LogUtil;
@@ -30,7 +30,7 @@ public class ActivitySimulator {
     private final TestModeConfig config;
     private final ScenarioManager scenarioManager;
     
-    private ActivityDTO currentActivity;
+    private TestActivityDTO currentActivity;
     private boolean running = false;
     private ScheduledFuture<?> currentTask;
     private int sequentialIndex = 0;
@@ -78,7 +78,7 @@ public class ActivitySimulator {
     /**
      * Retourne l'activité courante.
      */
-    public ActivityDTO getCurrentActivity() {
+    public TestActivityDTO getCurrentActivity() {
         return currentActivity;
     }
     
@@ -88,7 +88,7 @@ public class ActivitySimulator {
     public void setCurrentActivity(String activityName, double confidence) {
         try {
             Activity activity = Activity.valueOf(activityName.toUpperCase());
-            this.currentActivity = new ActivityDTO(activity, confidence, System.currentTimeMillis());
+            this.currentActivity = new TestActivityDTO(activity, confidence, System.currentTimeMillis());
             
             if (config.getLogging().isLogActivities()) {
                 logger.info(String.format("Activité définie manuellement: %s (confiance: %.2f)", 
@@ -144,8 +144,8 @@ public class ActivitySimulator {
             Activity nextActivity = selectNextActivity();
             double confidence = generateConfidence();
             
-            ActivityDTO previousActivity = currentActivity;
-            this.currentActivity = new ActivityDTO(nextActivity, confidence, System.currentTimeMillis());
+            TestActivityDTO previousActivity = currentActivity;
+            this.currentActivity = new TestActivityDTO(nextActivity, confidence, System.currentTimeMillis());
             
             if (config.getLogging().isLogActivities()) {
                 logger.info(String.format("Transition: %s -> %s (confiance: %.2f)",
@@ -254,8 +254,8 @@ public class ActivitySimulator {
     /**
      * Crée une activité par défaut.
      */
-    private ActivityDTO createDefaultActivity() {
-        return new ActivityDTO(Activity.WAITING, 0.8, System.currentTimeMillis());
+    private TestActivityDTO createDefaultActivity() {
+        return new TestActivityDTO(Activity.WAITING, 0.8, System.currentTimeMillis());
     }
     
     /**
@@ -279,12 +279,12 @@ public class ActivitySimulator {
      */
     public static class SimulationStats {
         private final boolean running;
-        private final ActivityDTO currentActivity;
+        private final TestActivityDTO currentActivity;
         private final long nextChangeIn;
         private final String mode;
         private final LocalDateTime timestamp;
         
-        public SimulationStats(boolean running, ActivityDTO currentActivity, long nextChangeIn, String mode) {
+        public SimulationStats(boolean running, TestActivityDTO currentActivity, long nextChangeIn, String mode) {
             this.running = running;
             this.currentActivity = currentActivity;
             this.nextChangeIn = nextChangeIn;
@@ -294,7 +294,7 @@ public class ActivitySimulator {
         
         // Getters
         public boolean isRunning() { return running; }
-        public ActivityDTO getCurrentActivity() { return currentActivity; }
+        public TestActivityDTO getCurrentActivity() { return currentActivity; }
         public long getNextChangeIn() { return nextChangeIn; }
         public String getMode() { return mode; }
         public LocalDateTime getTimestamp() { return timestamp; }
