@@ -99,6 +99,21 @@ public class ConfigManager {
     }
     
     /**
+     * Méthodes pour compatibilité avec le mode test.
+     */
+    public String getSystemProperty(String key, String defaultValue) {
+        return getString(key, defaultValue);
+    }
+    
+    public String getStringProperty(String key, String defaultValue) {
+        return getString(key, defaultValue);
+    }
+    
+    public boolean getBooleanProperty(String key, boolean defaultValue) {
+        return getBoolean(key, defaultValue);
+    }
+    
+    /**
      * Obtient une valeur de configuration sous forme de boolean.
      */
     public boolean getBoolean(String key, boolean defaultValue) {
