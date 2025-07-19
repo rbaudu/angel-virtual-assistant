@@ -266,7 +266,7 @@ if !errorlevel! equ 0 (
 call :check_prerequisites
 
 :: Compiler si nécessaire
-set "JAR_FILE=%PROJECT_DIR%target\angel-virtual-assistant-1.0.0-SNAPSHOT-jar-with-dependencies.jar"
+set "JAR_FILE=%PROJECT_DIR%target\angel-virtual-assistant-1.0.0-SNAPSHOT.jar"
 if not exist "%JAR_FILE%" (
     call :print_info "JAR non trouvé, compilation nécessaire..."
     call :build_project

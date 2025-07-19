@@ -48,14 +48,13 @@
             <artifactId>spring-boot-starter-websocket</artifactId>
             <version>${spring-boot.version}</version>
         </dependency>
-        
+
         <!-- Jakarta Annotations (pour @PostConstruct, @PreDestroy, etc.) -->
         <dependency>
             <groupId>jakarta.annotation</groupId>
             <artifactId>jakarta.annotation-api</artifactId>
             <version>${jakarta.annotation.version}</version>
-        </dependency>
-        
+        </dependency>        
         <!-- Jackson pour la manipulation JSON -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>

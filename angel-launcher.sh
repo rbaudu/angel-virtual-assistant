@@ -295,7 +295,7 @@ start_application() {
     check_prerequisites
     
     # Compiler si nécessaire
-    if [[ ! -f "$PROJECT_DIR/target/angel-virtual-assistant-1.0.0-SNAPSHOT-jar-with-dependencies.jar" ]]; then
+    if [[ ! -f "$PROJECT_DIR/target/angel-virtual-assistant-1.0.0-SNAPSHOT.jar" ]]; then
         print_info "JAR non trouvé, compilation nécessaire..."
         build_project
     fi
@@ -303,7 +303,7 @@ start_application() {
     # Configurer les options Java
     configure_java_opts
     
-    local jar_file="$PROJECT_DIR/target/angel-virtual-assistant-1.0.0-SNAPSHOT-jar-with-dependencies.jar"
+    local jar_file="$PROJECT_DIR/target/angel-virtual-assistant-1.0.0-SNAPSHOT.jar"
     
     if [[ $DAEMON_MODE == true ]]; then
         # Mode daemon
