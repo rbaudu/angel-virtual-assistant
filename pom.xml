@@ -24,6 +24,7 @@
         <logback.version>1.4.11</logback.version>
         <junit.version>5.10.0</junit.version>
         <mockito.version>5.4.0</mockito.version>
+        <jakarta.annotation.version>2.1.1</jakarta.annotation.version>
     </properties>
 
     <dependencies>
@@ -46,6 +47,13 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-websocket</artifactId>
             <version>${spring-boot.version}</version>
+        </dependency>
+        
+        <!-- Jakarta Annotations (pour @PostConstruct, @PreDestroy, etc.) -->
+        <dependency>
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId>
+            <version>${jakarta.annotation.version}</version>
         </dependency>
         
         <!-- Jackson pour la manipulation JSON -->
