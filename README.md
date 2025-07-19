@@ -6,7 +6,7 @@ Un assistant virtuel intelligent qui propose des activités en fonction de la d�
 
 Angel Virtual Assistant est un système conçu pour accompagner les personnes dans leur quotidien en proposant des activités adaptées à leur contexte actuel. Le système utilise la détection d'activités fournie par Angel-server-capture pour comprendre ce que fait la personne à un moment donné, puis propose des activités appropriées via un avatar visuel.
 
-## ✨ Nouveauté : Mode Test Intégré
+## ⚡ Nouveauté : Mode Test Intégré
 
 **🎯 Développement et tests simplifiés !**
 
@@ -26,10 +26,10 @@ git clone https://github.com/rbaudu/angel-virtual-assistant.git
 cd angel-virtual-assistant
 
 # Démarrer en mode test (sans dl4j-server-capture)
-./angel.sh start -p test
+./angel-launcher.sh start -p test
 
 # Ou directement avec Java
-java -Dangel.test.enabled=true -jar target/angel-virtual-assistant.jar
+java -Dangel.profile=test -jar target/angel-virtual-assistant.jar
 
 # Accéder au dashboard de test
 open http://localhost:8080/test-dashboard
@@ -154,16 +154,16 @@ L'architecture du système est modulaire et principalement implémentée en Java
 angel-virtual-assistant/
 ├── README.md
 ├── pom.xml
-├── angel.sh                    # Script de lancement Linux/macOS
-├── angel.bat                   # Script de lancement Windows
-├── install.sh                  # Script d'installation système
+├── angel-launcher.sh               # Script de lancement Linux/macOS
+├── angel-launcher.bat              # Script de lancement Windows
+├── install-script.sh               # Script d'installation système
 ├── config/
-│   ├── angel-config.json       # Configuration principale
+│   ├── angel-config.json           # Configuration principale
 │   └── test/
-│       ├── test-mode-config.json     # 🆕 Configuration mode test
-│       └── activity-scenarios.json   # 🆕 Scénarios d'activités
+│       ├── test-mode-config.json   # 🆕 Configuration mode test
+│       └── activity-scenarios.json # 🆕 Scénarios d'activités
 ├── docs/
-│   └── TEST_MODE.md           # 🆕 Documentation du mode test
+│   └── TEST_MODE.md               # 🆕 Documentation du mode test
 ├── src/
 │   ├── main/
 │   │   ├── java/
@@ -240,17 +240,17 @@ cd angel-virtual-assistant
 
 2. Rendre les scripts exécutables :
 ```bash
-chmod +x angel.sh install.sh
+chmod +x angel-launcher.sh install-script.sh
 ```
 
 3. **Installation système** (avec service systemd) :
 ```bash
-sudo ./install.sh install
+sudo ./install-script.sh install
 ```
 
 4. **Installation utilisateur** (sans service système) :
 ```bash
-./install.sh install --user
+./install-script.sh install --user
 ```
 
 ### Installation manuelle
@@ -289,19 +289,34 @@ java -jar target/angel-virtual-assistant-1.0.0-SNAPSHOT-jar-with-dependencies.ja
 #### Linux/macOS
 ```bash
 # Démarrer l'application en mode production
-./angel.sh start
+./angel-launcher.sh start
 
 # Démarrer en mode développement avec 1GB de RAM
-./angel.sh start -p dev -m 1g
+./angel-launcher.sh start -p dev -m 1g
 
 # Voir le statut
-./angel.sh status
+./angel-launcher.sh status
 
 # Voir les logs en temps réel
-./angel.sh logs
+./angel-launcher.sh logs
 
 # Arrêter l'application
-./angel.sh stop
+./angel-launcher.sh stop
+```
+
+#### Windows
+```batch
+# Démarrer l'application
+angel-launcher.bat start
+
+# Démarrer en mode développement
+angel-launcher.bat start -p dev -m 1g
+
+# Voir le statut
+angel-launcher.bat status
+
+# Arrêter l'application
+angel-launcher.bat stop
 ```
 
 ### 🆕 Mode Test (sans dl4j-server-capture)
@@ -309,15 +324,28 @@ java -jar target/angel-virtual-assistant-1.0.0-SNAPSHOT-jar-with-dependencies.ja
 #### Démarrage rapide
 ```bash
 # Démarrer en mode test
-./angel.sh start -p test
+./angel-launcher.sh start -p test
 
-# Ou avec activation explicite
-./angel.sh start --test-mode
+# Avec mode daemon
+./angel-launcher.sh start -p test -b
 
-# Avec configuration personnalisée
-java -Dangel.test.enabled=true \
-     -Dangel.test.config=config/test/custom-config.json \
-     -jar angel-virtual-assistant.jar
+# Avec debug
+./angel-launcher.sh start -p test -d
+
+# Avec mémoire personnalisée
+./angel-launcher.sh start -p test -m 1g
+```
+
+#### Windows
+```batch
+# Démarrer en mode test
+angel-launcher.bat start -p test
+
+# Voir le statut
+angel-launcher.bat status
+
+# Arrêter
+angel-launcher.bat stop
 ```
 
 #### Interface web de test
@@ -432,9 +460,30 @@ sudo systemctl status angel-virtual-assistant
 sudo systemctl stop angel-virtual-assistant
 
 # Ou via le script d'installation
-sudo ./install.sh service start
-sudo ./install.sh service enable
-sudo ./install.sh service status
+sudo ./install-script.sh service start
+sudo ./install-script.sh service enable
+sudo ./install-script.sh service status
+```
+
+### Options avancées
+
+```bash
+# Démarrer avec un fichier de configuration personnalisé
+./angel-launcher.sh start -c /path/to/custom-config.json
+
+# Démarrer avec plus de mémoire
+./angel-launcher.sh start -m 2g
+
+# Démarrer en mode debug sur un port spécifique
+./angel-launcher.sh start -d -D 8000
+
+# Mode verbose pour le débogage
+./angel-launcher.sh start -v
+
+# Compilation et tests
+./angel-launcher.sh build
+./angel-launcher.sh test
+./angel-launcher.sh clean
 ```
 
 ## Configuration
@@ -475,25 +524,25 @@ Le fichier `config/angel-config.json` permet de configurer :
 
 ```bash
 # Mise à jour automatique (garde la configuration)
-sudo ./install.sh update
+sudo ./install-script.sh update
 
 # Ou manuellement
 git pull
-./angel.sh stop
-./angel.sh build
-./angel.sh start
+./angel-launcher.sh stop
+./angel-launcher.sh build
+./angel-launcher.sh start
 ```
 
 ### Basculement entre modes
 
 ```bash
 # Passer en mode test
-./angel.sh stop
-./angel.sh start -p test
+./angel-launcher.sh stop
+./angel-launcher.sh start -p test
 
 # Retour en mode production
-./angel.sh stop
-./angel.sh start -p prod
+./angel-launcher.sh stop
+./angel-launcher.sh start -p prod
 
 # Basculement automatique si dl4j-server-capture indisponible
 # (si fallbackToTest: true dans la configuration)
@@ -503,23 +552,23 @@ git pull
 
 ```bash
 # Désinstallation complète
-sudo ./install.sh uninstall
+sudo ./install-script.sh uninstall
 
 # Ou arrêt simple
-./angel.sh stop
+./angel-launcher.sh stop
 ```
 
 ### Surveillance et logs
 
 ```bash
 # Voir les logs en temps réel
-./angel.sh logs
+./angel-launcher.sh logs
 
 # Voir les logs système (si installé en service)
 sudo journalctl -u angel-virtual-assistant -f
 
 # Vérifier l'état des processus
-./angel.sh status
+./angel-launcher.sh status
 
 # 🆕 Logs spécifiques au mode test
 tail -f logs/angel.log | grep -i test
@@ -592,11 +641,11 @@ java -version
 mvn -version
 
 # Vérifier les logs
-./angel.sh logs
+./angel-launcher.sh logs
 
 # Recompiler si nécessaire
-./angel.sh clean
-./angel.sh build
+./angel-launcher.sh clean
+./angel-launcher.sh build
 ```
 
 #### Impossible de se connecter à Angel-server-capture
@@ -605,8 +654,8 @@ mvn -version
 curl http://localhost:8080/api/health
 
 # 🆕 Basculer en mode test temporairement
-./angel.sh stop
-./angel.sh start -p test
+./angel-launcher.sh stop
+./angel-launcher.sh start -p test
 
 # Ou modifier temporairement la configuration
 # dans config/angel-config.json
@@ -640,12 +689,32 @@ curl http://localhost:8080/test-dashboard
 tail -f logs/angel.log | grep -i dashboard
 ```
 
+#### Problème de permissions
+```bash
+# Réinstaller avec les bonnes permissions
+sudo ./install-script.sh uninstall
+sudo ./install-script.sh install
+```
+
+#### Problème de mémoire
+```bash
+# Augmenter la mémoire allouée
+./angel-launcher.sh start -m 2g
+```
+
+### Support et logs
+
+En cas de problème, consultez les logs :
+- Application : `./logs/angel.log`
+- Service système : `sudo journalctl -u angel-virtual-assistant`
+- Sortie daemon : `./logs/angel.out` et `./logs/angel.err`
+
 ## Tests
 
 Exécuter les tests unitaires :
 ```bash
 # Avec le script
-./angel.sh test
+./angel-launcher.sh test
 
 # Ou avec Maven
 mvn test
@@ -700,7 +769,7 @@ cd angel-virtual-assistant
 mvn clean package
 
 # 2. Démarrer en mode test
-./angel.sh start -p test
+./angel-launcher.sh start -p test
 
 # 3. Ouvrir le dashboard
 open http://localhost:8080/test-dashboard
