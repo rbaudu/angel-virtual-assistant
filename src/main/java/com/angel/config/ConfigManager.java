@@ -3,7 +3,7 @@ package com.angel.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
-
+import jakarta.annotation.PostConstruct;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
@@ -29,6 +29,13 @@ public class ConfigManager {
      * Constructeur qui charge automatiquement les configurations.
      */
     public ConfigManager() {
+    }
+ 
+    /**
+     * Initialisation après injection des dépendances Spring.
+     */
+    @PostConstruct
+    public void init() {
         loadConfigurations();
     }
     
@@ -58,6 +65,11 @@ public class ConfigManager {
      */
     private void loadConfigFile(String name, String path) {
         try {
+            if (path == null || path.trim().isEmpty()) {
+                LOGGER.log(Level.WARNING, "Chemin de configuration null ou vide pour: {0}", name);
+                configSources.put(name, new Properties()); // Configuration vide
+                return;
+            }
             ClassPathResource resource = new ClassPathResource(path);
             if (resource.exists()) {
                 Properties props = new Properties();
