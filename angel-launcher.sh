@@ -171,6 +171,21 @@ EOF
     print_success "Fichier de configuration créé: $CONFIG_FILE"
 }
 
+# Fonction pour trouver le JAR Spring Boot
+find_spring_boot_jar() {
+    local target_dir="$PROJECT_DIR/target"
+    
+    # Chercher le JAR Spring Boot (sans 'original' dans le nom)
+    local jar_file=$(find "$target_dir" -name "*.jar" -not -name "*-original.jar" -not -name "*-sources.jar" -not -name "*-javadoc.jar" 2>/dev/null | head -n 1)
+    
+    if [[ -n "$jar_file" && -f "$jar_file" ]]; then
+        echo "$jar_file"
+        return 0
+    else
+        return 1
+    fi
+}
+
 # Vérification du statut de l'application
 check_status() {
     if [[ -f "$PID_FILE" ]]; then
@@ -255,16 +270,20 @@ configure_java_opts() {
         "dev")
             JAVA_OPTS="$JAVA_OPTS -Dangel.profile=dev"
             JAVA_OPTS="$JAVA_OPTS -Dlogging.level=DEBUG"
+            JAVA_OPTS="$JAVA_OPTS -Dspring.profiles.active=dev"
             ;;
         "prod")
             JAVA_OPTS="$JAVA_OPTS -Dangel.profile=prod"
             JAVA_OPTS="$JAVA_OPTS -Dlogging.level=INFO"
+            JAVA_OPTS="$JAVA_OPTS -Dspring.profiles.active=prod"
             JAVA_OPTS="$JAVA_OPTS -XX:+UseG1GC -XX:+UseStringDeduplication"
             ;;
         "test")
             JAVA_OPTS="$JAVA_OPTS -Dangel.profile=test"
             JAVA_OPTS="$JAVA_OPTS -Dlogging.level=DEBUG"
+            JAVA_OPTS="$JAVA_OPTS -Dspring.profiles.active=test"
             JAVA_OPTS="$JAVA_OPTS -Ddatabase.url=jdbc:h2:mem:testdb"
+            JAVA_OPTS="$JAVA_OPTS -Dangel.test.enabled=true"
             ;;
     esac
     
@@ -276,7 +295,7 @@ configure_java_opts() {
     
     # Mode verbose
     if [[ $VERBOSE == true ]]; then
-        JAVA_OPTS="$JAVA_OPTS -verbose:gc -XX:+PrintGCDetails"
+        JAVA_OPTS="$JAVA_OPTS -verbose:gc"
     fi
 }
 
@@ -294,16 +313,24 @@ start_application() {
     # Vérifier les prérequis
     check_prerequisites
     
-    # Compiler si nécessaire
-    if [[ ! -f "$PROJECT_DIR/target/angel-virtual-assistant-1.0.0-SNAPSHOT-jar-with-dependencies.jar" ]]; then
+    # Chercher le JAR compilé
+    local jar_file=$(find_spring_boot_jar)
+    
+    if [[ -z "$jar_file" ]]; then
         print_info "JAR non trouvé, compilation nécessaire..."
         build_project
+        jar_file=$(find_spring_boot_jar)
+        
+        if [[ -z "$jar_file" ]]; then
+            print_error "Impossible de trouver le JAR après compilation"
+            exit 1
+        fi
     fi
+    
+    print_info "Utilisation du JAR: $(basename "$jar_file")"
     
     # Configurer les options Java
     configure_java_opts
-    
-    local jar_file="$PROJECT_DIR/target/angel-virtual-assistant-1.0.0-SNAPSHOT-jar-with-dependencies.jar"
     
     if [[ $DAEMON_MODE == true ]]; then
         # Mode daemon
