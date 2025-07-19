@@ -99,13 +99,12 @@ public class AngelApplication {
         
         // Vérifier la connexion au serveur Angel-capture
         if (!apiClient.isServerAvailable()) {
-            LOGGER.log(Level.SEVERE, "Impossible de se connecter au serveur Angel-capture");
-            // Dans un cas réel, on pourrait soit attendre et réessayer,
-            // soit demander une intervention utilisateur
+            LOGGER.log(Level.WARNING, "Impossible de se connecter au serveur Angel-capture");
+            // Continuer le démarrage même si le serveur externe n'est pas disponible
         }
         
         // Configurer le polling périodique pour récupérer l'activité courante
-        long pollingInterval = configManager.getLong("api.pollingInterval", 30000);
+        long pollingInterval = configManager.getLong("api.polling-interval", 30000);
         scheduler.scheduleAtFixedRate(
             this::pollCurrentActivity,
             0,
@@ -178,11 +177,11 @@ public class AngelApplication {
                     }
                 })
                 .exceptionally(ex -> {
-                    LOGGER.log(Level.SEVERE, "Erreur lors de la récupération de l'activité", ex);
+                    LOGGER.log(Level.FINE, "Serveur Angel-capture non disponible: {0}", ex.getMessage());
                     return null;
                 });
         } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "Exception lors du polling de l'activité", e);
+            LOGGER.log(Level.FINE, "Exception lors du polling de l'activité: {0}", e.getMessage());
         }
     }
     
