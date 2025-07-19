@@ -25,9 +25,8 @@ public class TestModeConfiguration {
      * Simulateur d'activités - toujours disponible.
      */
     @Bean
-    public ActivitySimulator activitySimulator(TestModeConfig testModeConfig, 
-                                             ScenarioManager scenarioManager) {
-        return new ActivitySimulator(testModeConfig, scenarioManager);
+    public ActivitySimulator activitySimulator() {
+        return new ActivitySimulator();
     }
     
     /**
@@ -106,7 +105,11 @@ public class TestModeConfiguration {
         }
         
         public String getServiceStatus() {
-            return testClient.getServiceStatus();
+            if (testClient.isSimulationActive()) {
+                return "TEST_MODE_ACTIVE";
+            } else {
+                return "TEST_MODE_INACTIVE";
+            }
         }
         
         // Méthodes spécifiques au mode test
