@@ -4,7 +4,7 @@
 # Vérifie que la nouvelle configuration fonctionne correctement
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$SCRIPT_DIR"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
 # Couleurs
 GREEN='\033[0;32m'
@@ -29,7 +29,7 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-print_info "Test de la nouvelle configuration Angel Virtual Assistant"
+print_info "Test de la configuration harmonisée Angel Virtual Assistant"
 echo "================================================================"
 
 # Test 1: Vérifier la présence des fichiers de configuration
@@ -51,6 +51,17 @@ for file in "${config_files[@]}"; do
         all_configs_ok=false
     fi
 done
+
+# Vérifier que l'ancien fichier JSON n'est plus utilisé
+if [[ -f "$PROJECT_DIR/config/angel-config.json" ]]; then
+    if [[ -s "$PROJECT_DIR/config/angel-config.json" ]]; then
+        print_warning "⚠ config/angel-config.json n'est pas vide - devrait être supprimé"
+    else
+        print_success "✓ config/angel-config.json est vide (peut être supprimé)"
+    fi
+else
+    print_success "✓ config/angel-config.json supprimé"
+fi
 
 if [[ $all_configs_ok == true ]]; then
     print_success "Tous les fichiers de configuration sont présents"
@@ -74,46 +85,8 @@ fi
 
 echo
 
-# Test 3: Test du ConfigManager (si possible)
-print_info "Test 3: Test du gestionnaire de configuration"
-
-# Créer un petit test Java temporaire
-cat > /tmp/ConfigTest.java << 'EOF'
-import java.nio.file.Files;
-import java.nio.file.Paths;
-
-public class ConfigTest {
-    public static void main(String[] args) {
-        System.out.println("Test de base des fichiers de configuration...");
-        
-        // Vérifier les fichiers externes
-        boolean hasMain = Files.exists(Paths.get("config/application.properties"));
-        boolean hasTest = Files.exists(Paths.get("config/application-test.properties"));
-        
-        System.out.println("config/application.properties: " + (hasMain ? "OK" : "MANQUANT"));
-        System.out.println("config/application-test.properties: " + (hasTest ? "OK" : "MANQUANT"));
-        
-        if (hasMain && hasTest) {
-            System.out.println("SUCCÈS: Configuration externe trouvée");
-            System.exit(0);
-        } else {
-            System.out.println("ERREUR: Configuration externe manquante");
-            System.exit(1);
-        }
-    }
-}
-EOF
-
-if javac /tmp/ConfigTest.java -d /tmp && java -cp /tmp ConfigTest; then
-    print_success "Test de configuration réussi"
-else
-    print_warning "Test de configuration partiel"
-fi
-
-echo
-
-# Test 4: Vérifier la structure des propriétés
-print_info "Test 4: Vérification de la structure des propriétés"
+# Test 3: Test de la structure des propriétés
+print_info "Test 3: Vérification de la structure des propriétés"
 
 required_properties=(
     "system.name"
@@ -145,8 +118,8 @@ fi
 
 echo
 
-# Test 5: Test des profils
-print_info "Test 5: Test des configurations de profil"
+# Test 4: Test des profils
+print_info "Test 4: Test des configurations de profil"
 
 # Vérifier les propriétés spécifiques au mode test
 test_config="$PROJECT_DIR/config/application-test.properties"
@@ -168,8 +141,8 @@ fi
 
 echo
 
-# Test 6: Test du script de lancement
-print_info "Test 6: Test du script de lancement"
+# Test 5: Test du script de lancement
+print_info "Test 5: Test du script de lancement"
 
 if [[ -x "$PROJECT_DIR/angel-launcher.sh" ]]; then
     print_success "✓ Script de lancement exécutable"
@@ -186,6 +159,35 @@ fi
 
 echo
 
+# Test 6: Test de build du JAR
+print_info "Test 6: Test de génération du JAR"
+
+if mvn clean package -DskipTests -q; then
+    jar_file="$PROJECT_DIR/target/angel-virtual-assistant-1.0.0-SNAPSHOT.jar"
+    if [[ -f "$jar_file" ]]; then
+        print_success "✓ JAR généré avec succès"
+        
+        # Test rapide de démarrage (5 secondes max)
+        print_info "Test rapide du démarrage de l'application..."
+        timeout 5s java -jar "$jar_file" -p test > /dev/null 2>&1 &
+        java_pid=$!
+        
+        sleep 2
+        if ps -p $java_pid > /dev/null 2>&1; then
+            print_success "✓ Application démarre sans erreur critique"
+            kill $java_pid 2>/dev/null
+        else
+            print_warning "Application s'arrête rapidement (normal si serveur externe absent)"
+        fi
+    else
+        print_error "✗ JAR non généré"
+    fi
+else
+    print_error "✗ Échec de la génération du JAR"
+fi
+
+echo
+
 # Résumé
 print_info "Résumé des tests"
 echo "================================================================"
@@ -193,18 +195,25 @@ echo "================================================================"
 if [[ $all_configs_ok == true && $props_ok == true ]]; then
     print_success "🎉 Configuration harmonisée avec succès !"
     echo
-    print_info "Vous pouvez maintenant :"
-    echo "  • Lancer en mode par défaut : ./angel-launcher.sh start"
-    echo "  • Lancer en mode test       : ./angel-launcher.sh start -p test"
-    echo "  • Voir le statut            : ./angel-launcher.sh status"
-    echo "  • Voir les logs             : ./angel-launcher.sh logs"
+    print_info "Prêt à utiliser :"
+    echo "  • Lancer par défaut    : ./angel-launcher.sh start"
+    echo "  • Lancer en mode test  : ./angel-launcher.sh start -p test"
+    echo "  • Voir le statut       : ./angel-launcher.sh status"
+    echo "  • Voir les logs        : ./angel-launcher.sh logs"
     echo
-    print_info "Fichiers de configuration actifs :"
+    print_info "Configuration active :"
     echo "  • Principal : config/application.properties"
     echo "  • Test      : config/application-test.properties"
     echo "  • Techniques: src/main/resources/config/*.properties"
     echo
-    print_success "La migration de configuration est terminée !"
+    print_success "La migration de configuration est terminée ! ✅"
+    
+    # Suggestion de suppression manuelle
+    if [[ -f "$PROJECT_DIR/config/angel-config.json" ]]; then
+        echo
+        print_info "💡 Optionnel : Vous pouvez supprimer manuellement le fichier vide :"
+        echo "    rm config/angel-config.json"
+    fi
 else
     print_error "❌ Des problèmes ont été détectés dans la configuration"
     echo
@@ -214,8 +223,5 @@ else
     echo "  • Les propriétés obligatoires"
     exit 1
 fi
-
-# Nettoyer les fichiers temporaires
-rm -f /tmp/ConfigTest.java /tmp/ConfigTest.class
 
 exit 0
