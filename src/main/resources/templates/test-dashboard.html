@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Angel Test Mode - Dashboard</title>
+    <link rel="stylesheet" href="/css/test-mode.css">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+</head>
+<body>
+    <div class="test-dashboard">
+        <!-- En-tête -->
+        <div class="dashboard-header">
+            <h1>🤖 Angel Virtual Assistant</h1>
+            <div class="subtitle">Mode Test - Dashboard de Contrôle</div>
+        </div>
+        
+        <!-- Conteneur d'alertes -->
+        <div id="alert-container"></div>
+        
+        <!-- Grille principale -->
+        <div class="dashboard-grid">
+            <!-- Panneau de contrôle de simulation -->
+            <div class="card">
+                <h2>🎮 Contrôles de Simulation</h2>
+                
+                <div class="control-group">
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <span class="stat-value">
+                                <span id="status-indicator" class="status-indicator status-unknown"></span>
+                                <span id="status-text">Chargement...</span>
+                            </span>
+                            <span class="stat-label">Statut</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" id="mode-text">-</span>
+                            <span class="stat-label">Mode</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" id="next-change-text">-</span>
+                            <span class="stat-label">Prochain changement</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <button id="startBtn" class="btn btn-success">Démarrer Simulation</button>
+                    <button id="stopBtn" class="btn btn-danger" disabled>Arrêter Simulation</button>
+                    <button id="refreshBtn" class="btn btn-primary">Rafraîchir</button>
+                </div>
+            </div>
+            
+            <!-- Activité courante -->
+            <div class="card">
+                <h2>📊 Activité Courante</h2>
+                
+                <div class="activity-display">
+                    <div class="activity-name" id="activity-name">En attente...</div>
+                    <div class="activity-confidence" id="activity-confidence">
+                        <span class="percentage">-</span> de confiance
+                    </div>
+                    <div class="mt-2">
+                        <small id="activity-timestamp" class="text-muted">-</small>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Contrôle manuel -->
+            <div class="card">
+                <h2>🎯 Contrôle Manuel</h2>
+                
+                <div class="control-group">
+                    <label for="activity-selector">Activité :</label>
+                    <select id="activity-selector" class="form-control">
+                        <option value="EATING">Manger</option>
+                        <option value="READING">Lire</option>
+                        <option value="WATCHING_TV">Regarder TV</option>
+                        <option value="COOKING">Cuisiner</option>
+                        <option value="CLEANING">Nettoyer</option>
+                        <option value="WAITING">Attendre / Ne rien faire</option>
+                        <option value="USING_SCREEN">Utiliser un écran</option>
+                        <option value="WASHING">Se laver</option>
+                        <option value="WAKING_UP">Se réveiller</option>
+                        <option value="GOING_TO_SLEEP">Se coucher</option>
+                        <option value="LISTENING_MUSIC">Écouter de la musique</option>
+                        <option value="CONVERSING">Converser</option>
+                        <option value="MOVING">Se déplacer</option>
+                        <option value="PUTTING_AWAY">Ranger</option>
+                        <option value="WRITING">Écrire</option>
+                        <option value="PHONING">Téléphoner</option>
+                        <option value="PLAYING">Jouer</option>
+                        <option value="SINGING">Chanter</option>
+                        <option value="DANCING">Danser</option>
+                        <option value="KNITTING">Tricoter/Coudre</option>
+                        <option value="IRONING">Repasser</option>
+                        <option value="FEEDING">Nourrir les animaux</option>
+                        <option value="RECEIVING">Recevoir quelqu'un</option>
+                        <option value="PLAYING_MUSIC">Jouer de la musique</option>
+                        <option value="NEEDING_HELP">Avoir besoin d'aide</option>
+                        <option value="SLEEPING">Dormir</option>
+                        <option value="UNKNOWN">Autre</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label for="confidence-slider">Niveau de confiance :</label>
+                    <div class="slider-container">
+                        <input type="range" id="confidence-slider" class="slider" 
+                               min="0.5" max="1.0" step="0.05" value="0.8">
+                        <div class="slider-value" id="confidence-value">80%</div>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <button id="setActivityBtn" class="btn btn-primary">Définir Activité</button>
+                </div>
+            </div>
+            
+            <!-- Gestionnaire de scénarios -->
+            <div class="card">
+                <h2>🎬 Gestionnaire de Scénarios</h2>
+                
+                <div class="control-group">
+                    <label for="scenario-selector">Scénario disponible :</label>
+                    <select id="scenario-selector" class="form-control">
+                        <option value="">Chargement des scénarios...</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <button id="loadScenarioBtn" class="btn btn-success">Charger Scénario</button>
+                    <button id="stopScenarioBtn" class="btn btn-warning">Arrêter Scénario</button>
+                </div>
+                
+                <div class="control-group">
+                    <label>Scénario actuel :</label>
+                    <div id="current-scenario" class="alert alert-info">
+                        Aucun scénario actif
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Statistiques -->
+            <div class="card">
+                <h2>📈 Statistiques</h2>
+                
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <span class="stat-value" id="total-activities">-</span>
+                        <span class="stat-label">Activités simulées</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="avg-confidence">-</span>
+                        <span class="stat-label">Confiance moyenne</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="uptime">-</span>
+                        <span class="stat-label">Temps d'activité</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="last-update">-</span>
+                        <span class="stat-label">Dernière mise à jour</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Panneau de logs -->
+        <div class="card">
+            <h2>📋 Journal d'Activité</h2>
+            <div id="logs-container" class="logs-container">
+                <!-- Les logs seront ajoutés ici dynamiquement -->
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div class="text-center mt-3">
+            <small class="text-muted">
+                Angel Virtual Assistant - Mode Test v1.0.0 | 
+                Développé pour les tests et le développement
+            </small>
+        </div>
+    </div>
+    
+    <script src="/js/test-control.js"></script>
+</body>
+</html>
