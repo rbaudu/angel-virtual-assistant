@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
 
+import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
@@ -25,11 +26,22 @@ public class ConfigManager {
     @Value("${avatar.config.path:config/avatar.properties}")
     private String avatarConfigPath;
     
+    private boolean initialized = false;
+    
     /**
-     * Constructeur qui charge automatiquement les configurations.
+     * Constructeur par défaut.
      */
     public ConfigManager() {
+        // Le chargement se fait dans @PostConstruct après injection des valeurs
+    }
+    
+    /**
+     * Initialisation après injection des dépendances Spring.
+     */
+    @PostConstruct
+    public void init() {
         loadConfigurations();
+        initialized = true;
     }
     
     /**
@@ -37,8 +49,13 @@ public class ConfigManager {
      */
     private void loadConfigurations() {
         try {
-            // Charger la configuration principale de l'avatar
-            loadConfigFile("avatar", avatarConfigPath);
+            // Charger la configuration principale de l'avatar (si le chemin est défini)
+            if (avatarConfigPath != null && !avatarConfigPath.trim().isEmpty()) {
+                loadConfigFile("avatar", avatarConfigPath);
+            } else {
+                // Valeur par défaut si @Value n'est pas injecté
+                loadConfigFile("avatar", "config/avatar.properties");
+            }
             
             // Charger d'autres fichiers de configuration
             loadConfigFile("phoneme-viseme", "config/phoneme-viseme-mapping.properties");
@@ -58,6 +75,11 @@ public class ConfigManager {
      */
     private void loadConfigFile(String name, String path) {
         try {
+            if (path == null || path.trim().isEmpty()) {
+                LOGGER.log(Level.WARNING, "Chemin de configuration null ou vide pour: {0}", name);
+                return;
+            }
+            
             ClassPathResource resource = new ClassPathResource(path);
             if (resource.exists()) {
                 Properties props = new Properties();
@@ -68,9 +90,13 @@ public class ConfigManager {
                 }
             } else {
                 LOGGER.log(Level.WARNING, "Fichier de configuration non trouvé: {0}", path);
+                // Créer une configuration vide pour éviter les erreurs
+                configSources.put(name, new Properties());
             }
         } catch (IOException e) {
             LOGGER.log(Level.WARNING, "Erreur lors du chargement de " + path, e);
+            // Créer une configuration vide pour éviter les erreurs
+            configSources.put(name, new Properties());
         }
     }
     
@@ -305,6 +331,14 @@ public class ConfigManager {
         stats.put("totalProperties", mergedConfig.size());
         stats.put("configSources", configSources.size());
         stats.put("sourceNames", configSources.keySet());
+        stats.put("initialized", initialized);
         return stats;
+    }
+    
+    /**
+     * Vérifie si le ConfigManager est initialisé.
+     */
+    public boolean isInitialized() {
+        return initialized;
     }
 }
