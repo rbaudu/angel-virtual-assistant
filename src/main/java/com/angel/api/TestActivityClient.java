@@ -51,6 +51,24 @@ public class TestActivityClient {
     }
     
     /**
+     * Démarre la simulation (version simple).
+     */
+    public boolean startSimulation() {
+        try {
+            this.isActive = true;
+            if (activitySimulator != null) {
+                activitySimulator.startSimulation();
+            }
+            logger.info("Simulation démarrée");
+            return true;
+        } catch (Exception e) {
+            logger.severe("Erreur lors du démarrage de la simulation: " + e.getMessage());
+            this.isActive = false;
+            return false;
+        }
+    }
+    
+    /**
      * Arrête la simulation d'activités.
      */
     public void stopSimulation() {
@@ -64,6 +82,19 @@ public class TestActivityClient {
         
         if (scenarioManager != null) {
             scenarioManager.stopCurrentScenario();
+        }
+    }
+    
+    /**
+     * Arrête la simulation (version simple).
+     */
+    public boolean stopSimulation() {
+        try {
+            stopSimulation();
+            return true;
+        } catch (Exception e) {
+            logger.severe("Erreur lors de l'arrêt de la simulation: " + e.getMessage());
+            return false;
         }
     }
     
@@ -98,6 +129,43 @@ public class TestActivityClient {
         } catch (Exception e) {
             logger.severe("Erreur lors de la récupération des dernières activités: " + e.getMessage());
             return List.of();
+        }
+    }
+    
+    /**
+     * Récupère l'activité courante.
+     */
+    public ActivityDTO getCurrentActivity() {
+        if (!isActive || activitySimulator == null) {
+            return createDefaultActivity();
+        }
+        
+        try {
+            return activitySimulator.getCurrentActivity();
+        } catch (Exception e) {
+            logger.severe("Erreur lors de la récupération de l'activité courante: " + e.getMessage());
+            return createDefaultActivity();
+        }
+    }
+    
+    /**
+     * Définit l'activité courante manuellement.
+     */
+    public boolean setCurrentActivity(String activityType, double confidence) {
+        if (!isActive) {
+            logger.warning("Tentative de définition d'activité alors que la simulation n'est pas active");
+            return false;
+        }
+        
+        try {
+            ActivityDTO activity = new ActivityDTO(activityType, System.currentTimeMillis(), 
+                confidence, "manual", "Manually set activity");
+            activitySimulator.setCurrentActivity(activity);
+            logger.info("Activité définie manuellement: " + activityType + " (confiance: " + confidence + ")");
+            return true;
+        } catch (Exception e) {
+            logger.severe("Erreur lors de la définition de l'activité: " + e.getMessage());
+            return false;
         }
     }
     
@@ -138,6 +206,76 @@ public class TestActivityClient {
     }
     
     /**
+     * Charge un scénario spécifique.
+     */
+    public boolean loadScenario(String scenarioId) {
+        try {
+            if (scenarioManager != null) {
+                scenarioManager.loadScenario(scenarioId);
+                this.currentScenario = scenarioId;
+                logger.info("Scénario chargé: " + scenarioId);
+                return true;
+            }
+            return false;
+        } catch (Exception e) {
+            logger.severe("Erreur lors du chargement du scénario: " + e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Vérifie si la simulation est en cours.
+     */
+    public boolean isSimulationRunning() {
+        return isActive && (activitySimulator != null ? activitySimulator.isRunning() : false);
+    }
+    
+    /**
+     * Récupère la liste des scénarios disponibles.
+     */
+    public List<ScenarioManager.ScenarioInfo> getAvailableScenarios() {
+        if (scenarioManager != null) {
+            return scenarioManager.getAvailableScenarios();
+        }
+        return List.of();
+    }
+    
+    /**
+     * Récupère les informations sur le scénario courant.
+     */
+    public ScenarioManager.CurrentScenarioInfo getCurrentScenarioInfo() {
+        if (scenarioManager != null && currentScenario != null) {
+            return scenarioManager.getCurrentScenarioInfo();
+        }
+        return null;
+    }
+    
+    /**
+     * Arrête le scénario courant.
+     */
+    public boolean stopCurrentScenario() {
+        try {
+            if (scenarioManager != null) {
+                scenarioManager.stopCurrentScenario();
+                this.currentScenario = null;
+                logger.info("Scénario courant arrêté");
+                return true;
+            }
+            return false;
+        } catch (Exception e) {
+            logger.severe("Erreur lors de l'arrêt du scénario: " + e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Vérifie la connexion.
+     */
+    public boolean checkConnection() {
+        return activitySimulator != null && scenarioManager != null;
+    }
+    
+    /**
      * Modifie les paramètres de simulation.
      */
     public void updateSimulationParameters(double speedMultiplier, boolean enableNoise) {
@@ -173,47 +311,56 @@ public class TestActivityClient {
     /**
      * Récupère les statistiques de la simulation.
      */
-    public SimulationStats getSimulationStats() {
-        if (!isActive) {
-            return new SimulationStats(false, null, 0, 0, 0.0);
+    public ActivitySimulator.SimulationStats getSimulationStats() {
+        if (!isActive || activitySimulator == null) {
+            return createDefaultStats();
         }
         
         try {
-            int totalActivities = activitySimulator.getTotalActivitiesGenerated();
-            int activitiesInBuffer = activitySimulator.getBufferSize();
-            double averageConfidence = activitySimulator.getAverageConfidence();
-            
-            return new SimulationStats(true, currentScenario, totalActivities, 
-                activitiesInBuffer, averageConfidence);
+            return activitySimulator.getSimulationStats();
         } catch (Exception e) {
             logger.severe("Erreur lors de la récupération des statistiques: " + e.getMessage());
-            return new SimulationStats(false, null, 0, 0, 0.0);
+            return createDefaultStats();
         }
     }
     
     /**
-     * Classe pour les statistiques de simulation.
+     * Récupère les informations du mode test.
      */
-    public static class SimulationStats {
-        private final boolean active;
-        private final String scenario;
-        private final int totalActivities;
-        private final int bufferSize;
-        private final double averageConfidence;
+    public TestModeInfo getTestModeInfo() {
+        return new TestModeInfo("TEST", "1.0", isActive);
+    }
+    
+    /**
+     * Crée une activité par défaut.
+     */
+    private ActivityDTO createDefaultActivity() {
+        return new ActivityDTO("WAITING", System.currentTimeMillis(), 0.5, "test", "Default activity");
+    }
+    
+    /**
+     * Crée des statistiques par défaut.
+     */
+    private ActivitySimulator.SimulationStats createDefaultStats() {
+        return new ActivitySimulator.SimulationStats(false, "IDLE", "WAITING", 0, System.currentTimeMillis());
+    }
+    
+    /**
+     * Classe pour les informations du mode test.
+     */
+    public static class TestModeInfo {
+        private final String mode;
+        private final String version;
+        private final boolean simulationRunning;
         
-        public SimulationStats(boolean active, String scenario, int totalActivities, 
-                             int bufferSize, double averageConfidence) {
-            this.active = active;
-            this.scenario = scenario;
-            this.totalActivities = totalActivities;
-            this.bufferSize = bufferSize;
-            this.averageConfidence = averageConfidence;
+        public TestModeInfo(String mode, String version, boolean simulationRunning) {
+            this.mode = mode;
+            this.version = version;
+            this.simulationRunning = simulationRunning;
         }
         
-        public boolean isActive() { return active; }
-        public String getScenario() { return scenario; }
-        public int getTotalActivities() { return totalActivities; }
-        public int getBufferSize() { return bufferSize; }
-        public double getAverageConfidence() { return averageConfidence; }
+        public String getMode() { return mode; }
+        public String getVersion() { return version; }
+        public boolean isSimulationRunning() { return simulationRunning; }
     }
 }
