@@ -6,6 +6,39 @@ Un assistant virtuel intelligent qui propose des activités en fonction de la d�
 
 Angel Virtual Assistant est un système conçu pour accompagner les personnes dans leur quotidien en proposant des activités adaptées à leur contexte actuel. Le système utilise la détection d'activités fournie par Angel-server-capture pour comprendre ce que fait la personne à un moment donné, puis propose des activités appropriées via un avatar visuel.
 
+## ✨ Nouveauté : Mode Test Intégré
+
+**🎯 Développement et tests simplifiés !**
+
+Le mode test permet de développer et tester l'assistant virtuel **sans dépendre du serveur dl4j-server-capture**. Il simule des activités en continu avec :
+
+- 🎮 **Interface de contrôle web** : Dashboard complet accessible sur `http://localhost:8080/test-dashboard`
+- 🎭 **Scénarios personnalisables** : Routines matinales, journées chargées, activités aléatoires
+- ⚡ **Contrôle en temps réel** : Démarrage/arrêt, changement d'activité manuel
+- 📊 **Statistiques détaillées** : Monitoring et logs en direct
+- 🔄 **Basculement automatique** : Passe en mode test si le serveur principal est indisponible
+
+### Démarrage rapide en mode test
+
+```bash
+# Cloner le projet
+git clone https://github.com/rbaudu/angel-virtual-assistant.git
+cd angel-virtual-assistant
+
+# Démarrer en mode test (sans dl4j-server-capture)
+./angel.sh start -p test
+
+# Ou directement avec Java
+java -Dangel.test.enabled=true -jar target/angel-virtual-assistant.jar
+
+# Accéder au dashboard de test
+open http://localhost:8080/test-dashboard
+```
+
+📚 **Documentation complète** : [docs/TEST_MODE.md](docs/TEST_MODE.md)
+
+---
+
 ## Fonctionnalités principales
 
 - **Détection d'activités** : Intégration avec Angel-server-capture pour détecter 27 types d'activités différentes
@@ -15,6 +48,7 @@ Angel Virtual Assistant est un système conçu pour accompagner les personnes da
 - **Configuration flexible** : Paramétrage des fréquences et types de propositions
 - **Historique intelligent** : Mémorisation des propositions pour éviter les répétitions
 - **Préférences utilisateur** : Système de préférences personnalisables
+- **🆕 Mode test complet** : Simulation d'activités pour développement et tests
 
 ## Types d'activités détectées
 
@@ -79,30 +113,40 @@ L'architecture du système est modulaire et principalement implémentée en Java
 
 3. **Module Configuration** (`com.angel.config`)
    - `ConfigManager.java` : Gestion de la configuration centralisée
+   - `TestModeConfig.java` : Configuration du mode test
 
 4. **Module API** (`com.angel.api`)
    - `AngelServerClient.java` : Communication avec Angel-server-capture
+   - `TestActivityClient.java` : Client de simulation pour le mode test
+   - `TestModeController.java` : API REST pour contrôle des tests
    - `dto/ActivityDTO.java` : Objets de transfert de données
 
-5. **Module Intelligence** (`com.angel.intelligence`)
+5. **🆕 Module Test** (`com.angel.test`)
+   - `ActivitySimulator.java` : Simulateur d'activités
+   - `ScenarioManager.java` : Gestionnaire de scénarios
+   - `TestDataGenerator.java` : Générateur de données de test
+   - `TestModeService.java` : Service principal du mode test
+
+6. **Module Intelligence** (`com.angel.intelligence`)
    - `ProposalEngine.java` : Moteur de décision pour les propositions
    - `proposals/Proposal.java` : Interface des propositions
    - `proposals/WeatherProposal.java` : Exemple de proposition météo
 
-6. **Module Persistance** (`com.angel.persistence`)
+7. **Module Persistance** (`com.angel.persistence`)
    - `DatabaseManager.java` : Gestion de la base de données H2
    - `dao/ProposalDAO.java` : Accès aux données des propositions
    - `dao/UserPreferenceDAO.java` : Accès aux préférences utilisateur
 
-7. **Module Interface Utilisateur** (`com.angel.ui`)
+8. **Module Interface Utilisateur** (`com.angel.ui`)
    - `AvatarController.java` : Contrôle de l'avatar visuel
+   - `TestDashboardController.java` : Contrôleur web du dashboard de test
 
-8. **Module Reconnaissance Vocale** (`com.angel.voice`)
+9. **Module Reconnaissance Vocale** (`com.angel.voice`)
    - `WakeWordDetector.java` : Détection du mot-clé "Angel"
 
-9. **Module Utilitaires** (`com.angel.util`)
-   - `LogUtil.java` : Gestion des logs
-   - `DateTimeUtil.java` : Utilitaires de date/heure
+10. **Module Utilitaires** (`com.angel.util`)
+    - `LogUtil.java` : Gestion des logs
+    - `DateTimeUtil.java` : Utilitaires de date/heure
 
 ## Structure des fichiers
 
@@ -114,7 +158,12 @@ angel-virtual-assistant/
 ├── angel.bat                   # Script de lancement Windows
 ├── install.sh                  # Script d'installation système
 ├── config/
-│   └── angel-config.json
+│   ├── angel-config.json       # Configuration principale
+│   └── test/
+│       ├── test-mode-config.json     # 🆕 Configuration mode test
+│       └── activity-scenarios.json   # 🆕 Scénarios d'activités
+├── docs/
+│   └── TEST_MODE.md           # 🆕 Documentation du mode test
 ├── src/
 │   ├── main/
 │   │   ├── java/
@@ -127,11 +176,20 @@ angel-virtual-assistant/
 │   │   │           │   ├── ProposalHistory.java
 │   │   │           │   └── UserProfile.java
 │   │   │           ├── config/
-│   │   │           │   └── ConfigManager.java
+│   │   │           │   ├── ConfigManager.java
+│   │   │           │   ├── TestModeConfig.java          # 🆕
+│   │   │           │   └── TestModeConfiguration.java   # 🆕
 │   │   │           ├── api/
 │   │   │           │   ├── AngelServerClient.java
+│   │   │           │   ├── TestActivityClient.java      # 🆕
+│   │   │           │   ├── TestModeController.java      # 🆕
 │   │   │           │   └── dto/
 │   │   │           │       └── ActivityDTO.java
+│   │   │           ├── test/                            # 🆕 Module complet
+│   │   │           │   ├── ActivitySimulator.java
+│   │   │           │   ├── ScenarioManager.java
+│   │   │           │   ├── TestDataGenerator.java
+│   │   │           │   └── TestModeService.java
 │   │   │           ├── intelligence/
 │   │   │           │   ├── ProposalEngine.java
 │   │   │           │   └── proposals/
@@ -143,18 +201,21 @@ angel-virtual-assistant/
 │   │   │           │       ├── ProposalDAO.java
 │   │   │           │       └── UserPreferenceDAO.java
 │   │   │           ├── ui/
-│   │   │           │   └── AvatarController.java
+│   │   │           │   ├── AvatarController.java
+│   │   │           │   └── TestDashboardController.java # 🆕
 │   │   │           ├── voice/
 │   │   │           │   └── WakeWordDetector.java
 │   │   │           └── util/
 │   │   │               ├── LogUtil.java
 │   │   │               └── DateTimeUtil.java
 │   │   └── resources/
-│   │       ├── static/
+│   │       ├── static/                                  # 🆕 Ressources web
 │   │       │   ├── css/
-│   │       │   ├── js/
-│   │       │   └── assets/
-│   │       └── templates/
+│   │       │   │   └── test-mode.css
+│   │       │   └── js/
+│   │       │       └── test-control.js
+│   │       └── templates/                               # 🆕 Templates web
+│   │           └── test-dashboard.html
 │   └── test/
 │       └── java/
 └── logs/
@@ -164,7 +225,8 @@ angel-virtual-assistant/
 
 - Java 17 ou supérieur
 - Maven 3.6 ou supérieur
-- Angel-server-capture en fonctionnement (pour la détection d'activités)
+- **En mode production** : Angel-server-capture en fonctionnement
+- **En mode test** : Aucune dépendance externe 🎉
 
 ## Installation
 
@@ -206,7 +268,8 @@ mvn clean compile
 
 3. Configurer le système :
    - Éditer `config/angel-config.json` pour adapter les paramètres
-   - Configurer l'URL du serveur Angel-server-capture
+   - **Mode production** : Configurer l'URL du serveur Angel-server-capture
+   - **Mode test** : Activer le mode test dans la configuration
 
 4. Exécuter l'application :
 ```bash
@@ -221,21 +284,15 @@ java -jar target/angel-virtual-assistant-1.0.0-SNAPSHOT-jar-with-dependencies.ja
 
 ## Utilisation
 
-### Avec les scripts de lancement (Recommandé)
+### Mode Production (avec dl4j-server-capture)
 
 #### Linux/macOS
 ```bash
-# Démarrer l'application
+# Démarrer l'application en mode production
 ./angel.sh start
 
 # Démarrer en mode développement avec 1GB de RAM
 ./angel.sh start -p dev -m 1g
-
-# Démarrer en mode debug
-./angel.sh start -d
-
-# Démarrer en mode daemon (arrière-plan)
-./angel.sh start -b
 
 # Voir le statut
 ./angel.sh status
@@ -245,39 +302,116 @@ java -jar target/angel-virtual-assistant-1.0.0-SNAPSHOT-jar-with-dependencies.ja
 
 # Arrêter l'application
 ./angel.sh stop
-
-# Redémarrer avec configuration production
-./angel.sh restart -p prod -m 2g
-
-# Voir l'aide complète
-./angel.sh help
 ```
 
-#### Windows
-```batch
-# Démarrer l'application
-angel.bat start
+### 🆕 Mode Test (sans dl4j-server-capture)
 
-# Démarrer en mode développement
-angel.bat start -p dev -m 1g
+#### Démarrage rapide
+```bash
+# Démarrer en mode test
+./angel.sh start -p test
 
-# Voir le statut
-angel.bat status
+# Ou avec activation explicite
+./angel.sh start --test-mode
 
-# Arrêter l'application
-angel.bat stop
+# Avec configuration personnalisée
+java -Dangel.test.enabled=true \
+     -Dangel.test.config=config/test/custom-config.json \
+     -jar angel-virtual-assistant.jar
+```
 
-# Voir l'aide
-angel.bat help
+#### Interface web de test
+
+1. **Accéder au dashboard** :
+   ```
+   http://localhost:8080/test-dashboard
+   ```
+
+2. **Fonctionnalités disponibles** :
+   - 🎮 Contrôles de simulation (start/stop)
+   - 🎯 Définition manuelle d'activités
+   - 🎭 Chargement de scénarios prédéfinis
+   - 📊 Statistiques en temps réel
+   - 📝 Journal d'activité en direct
+
+#### API de test
+
+```bash
+# Vérifier l'état du mode test
+curl http://localhost:8080/api/test/health
+
+# Obtenir l'activité courante
+curl http://localhost:8080/api/test/activity/current
+
+# Définir une activité manuellement
+curl -X POST http://localhost:8080/api/test/activity/set \
+     -H "Content-Type: application/json" \
+     -d '{"activity": "READING", "confidence": 0.85}'
+
+# Démarrer la simulation
+curl -X POST http://localhost:8080/api/test/simulation/start
+
+# Charger un scénario
+curl -X POST http://localhost:8080/api/test/scenario/load/morning_routine
+```
+
+### Configuration du mode test
+
+#### Activation dans angel-config.json
+
+```json
+{
+  "system": {
+    "mode": "test",
+    "testMode": {
+      "enabled": true,
+      "configFile": "config/test/test-mode-config.json"
+    }
+  },
+  "api": {
+    "testMode": {
+      "fallbackToTest": true
+    }
+  }
+}
+```
+
+#### Scénarios personnalisés
+
+Éditer `config/test/activity-scenarios.json` :
+
+```json
+{
+  "scenarios": {
+    "my_scenario": {
+      "name": "Mon Scénario Personnalisé",
+      "description": "Description de mon scénario",
+      "activities": [
+        {
+          "activity": "WAKING_UP",
+          "duration": 120000,
+          "confidence": 0.9,
+          "description": "Se réveiller"
+        },
+        {
+          "activity": "EATING",
+          "duration": 300000,
+          "confidence": 0.85,
+          "description": "Petit déjeuner"
+        }
+      ]
+    }
+  }
+}
 ```
 
 ### Profils d'exécution
 
 Le système supporte plusieurs profils :
 
+- **prod** : Mode production (avec dl4j-server-capture)
+- **test** : Mode test (simulation intégrée) 🆕
 - **dev** : Mode développement (logs détaillés, hot reload)
-- **prod** : Mode production (logs optimisés, performances)
-- **test** : Mode test (base de données en mémoire)
 - **default** : Mode par défaut
 
 ### Gestion du service système
@@ -303,37 +437,17 @@ sudo ./install.sh service enable
 sudo ./install.sh service status
 ```
 
-### Options avancées
-
-```bash
-# Démarrer avec un fichier de configuration personnalisé
-./angel.sh start -c /path/to/custom-config.json
-
-# Démarrer avec plus de mémoire
-./angel.sh start -m 2g
-
-# Démarrer en mode debug sur un port spécifique
-./angel.sh start -d -D 8000
-
-# Mode verbose pour le débogage
-./angel.sh start -v
-
-# Compilation et tests
-./angel.sh build
-./angel.sh test
-./angel.sh clean
-```
-
 ## Configuration
 
 Le fichier `config/angel-config.json` permet de configurer :
 
-- **Système** : Langue, mot-clé d'activation
-- **API** : URL du serveur Angel-capture, timeouts
+- **Système** : Langue, mot-clé d'activation, mode de fonctionnement
+- **API** : URL du serveur Angel-capture, timeouts, mode test
 - **Avatar** : Paramètres d'affichage et d'animation
 - **Propositions** : Fréquences, types autorisés par activité
 - **Base de données** : Configuration H2
 - **Logging** : Niveaux et fichiers de log
+- **🆕 Mode test** : Configuration de la simulation
 
 ### Exemple de configuration des propositions :
 
@@ -370,6 +484,21 @@ git pull
 ./angel.sh start
 ```
 
+### Basculement entre modes
+
+```bash
+# Passer en mode test
+./angel.sh stop
+./angel.sh start -p test
+
+# Retour en mode production
+./angel.sh stop
+./angel.sh start -p prod
+
+# Basculement automatique si dl4j-server-capture indisponible
+# (si fallbackToTest: true dans la configuration)
+```
+
 ### Désinstallation
 
 ```bash
@@ -391,6 +520,9 @@ sudo journalctl -u angel-virtual-assistant -f
 
 # Vérifier l'état des processus
 ./angel.sh status
+
+# 🆕 Logs spécifiques au mode test
+tail -f logs/angel.log | grep -i test
 ```
 
 ## Extensibilité
@@ -402,6 +534,12 @@ Le système est conçu pour être facilement extensible :
 1. Créer une classe implémentant `Proposal`
 2. L'ajouter dans `createAvailableProposals()` de `AngelApplication`
 3. Configurer les paramètres dans `angel-config.json`
+
+### 🆕 Ajouter un nouveau scénario de test :
+
+1. Éditer `config/test/activity-scenarios.json`
+2. Ajouter votre scénario avec les activités désirées
+3. Recharger via l'API ou redémarrer l'application
 
 ### Exemple d'implémentation :
 
@@ -431,6 +569,7 @@ Le système utilise une base de données H2 intégrée avec les tables :
 - `proposal_history` : Historique des propositions faites
 - `user_preferences` : Préférences utilisateur
 - `activities` : Cache local des activités détectées
+- **🆕** `test_sessions` : Sessions de test et statistiques
 
 ## Logging
 
@@ -438,6 +577,7 @@ Les logs sont configurés avec plusieurs niveaux :
 - **INFO** : Informations générales de fonctionnement
 - **WARNING** : Avertissements et erreurs récupérables
 - **SEVERE** : Erreurs critiques
+- **🆕 DEBUG** : Logs détaillés du mode test
 
 Fichiers de log dans `./logs/angel.log` avec rotation automatique.
 
@@ -464,29 +604,41 @@ mvn -version
 # Vérifier que le serveur est démarré
 curl http://localhost:8080/api/health
 
+# 🆕 Basculer en mode test temporairement
+./angel.sh stop
+./angel.sh start -p test
+
 # Ou modifier temporairement la configuration
 # dans config/angel-config.json
 ```
 
-#### Problème de permissions
+#### 🆕 Problèmes avec le mode test
 ```bash
-# Réinstaller avec les bonnes permissions
-sudo ./install.sh uninstall
-sudo ./install.sh install
+# Vérifier l'état du mode test
+curl http://localhost:8080/api/test/health
+
+# Vérifier la configuration
+cat config/test/test-mode-config.json | jq
+
+# Redémarrer la simulation
+curl -X POST http://localhost:8080/api/test/simulation/stop
+curl -X POST http://localhost:8080/api/test/simulation/start
+
+# Vérifier les scénarios
+curl http://localhost:8080/api/test/scenarios
 ```
 
-#### Problème de mémoire
+#### Dashboard de test inaccessible
 ```bash
-# Augmenter la mémoire allouée
-./angel.sh start -m 2g
+# Vérifier que le mode test est activé
+grep -r "testMode" config/
+
+# Tester l'accès direct
+curl http://localhost:8080/test-dashboard
+
+# Vérifier les logs du serveur web
+tail -f logs/angel.log | grep -i dashboard
 ```
-
-### Support et logs
-
-En cas de problème, consultez les logs :
-- Application : `./logs/angel.log`
-- Service système : `sudo journalctl -u angel-virtual-assistant`
-- Sortie daemon : `./logs/angel.out` et `./logs/angel.err`
 
 ## Tests
 
@@ -497,14 +649,17 @@ Exécuter les tests unitaires :
 
 # Ou avec Maven
 mvn test
+
+# 🆕 Tests spécifiques au mode test
+mvn test -Dtest="*Test*"
 ```
 
 ## Contribution
 
 1. Fork le projet
-2. Créer une branche pour votre fonctionnalité
-3. Committer vos changements
-4. Pousser vers la branche
+2. Créer une branche pour votre fonctionnalité (`git checkout -b feature/AmazingFeature`)
+3. Committer vos changements (`git commit -m 'Add AmazingFeature'`)
+4. Pousser vers la branche (`git push origin feature/AmazingFeature`)
 5. Créer une Pull Request
 
 ## Licence
@@ -513,6 +668,10 @@ mvn test
 
 ## Roadmap
 
+- [x] **🆕 Mode test intégré** avec simulation d'activités
+- [x] **🆕 Interface web** de contrôle des tests
+- [x] **🆕 Scénarios personnalisables** d'activités
+- [x] **🆕 API REST** pour contrôle programmatique
 - [ ] Implémentation des propositions manquantes (News, Stories, Games, etc.)
 - [ ] Interface web pour l'avatar
 - [ ] Intégration reconnaissance vocale avancée
@@ -524,3 +683,29 @@ mvn test
 - [ ] Système de plugins
 - [ ] Support Docker/containerisation
 - [ ] Monitoring et métriques avancées
+- [ ] **🔄 Mode hybride** : basculement automatique production/test
+- [ ] **📊 Analytics** : statistiques d'usage et patterns d'activités
+- [ ] **🎯 IA améliorée** : apprentissage des préférences utilisateur
+
+---
+
+## 🚀 Démarrage Rapide
+
+**Pour commencer immédiatement avec le mode test :**
+
+```bash
+# 1. Cloner et compiler
+git clone https://github.com/rbaudu/angel-virtual-assistant.git
+cd angel-virtual-assistant
+mvn clean package
+
+# 2. Démarrer en mode test
+./angel.sh start -p test
+
+# 3. Ouvrir le dashboard
+open http://localhost:8080/test-dashboard
+
+# 4. Commencer à tester ! 🎉
+```
+
+**Le mode test vous permet de développer et tester Angel Virtual Assistant sans aucune dépendance externe !**
