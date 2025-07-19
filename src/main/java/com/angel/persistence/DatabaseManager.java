@@ -27,6 +27,9 @@ public class DatabaseManager {
      * @param configManager Le gestionnaire de configuration
      */
     public DatabaseManager(ConfigManager configManager) {
+        if (configManager == null) {
+            throw new IllegalArgumentException("ConfigManager ne peut pas être null");
+        }
         this.configManager = configManager;
         initializeDatabase();
     }
@@ -37,12 +40,23 @@ public class DatabaseManager {
     private void initializeDatabase() {
         try {
             // Charger le driver H2
-            Class.forName(configManager.getString("database.driver"));
+            String driverClassName = configManager.getString("database.driver", "org.h2.Driver");
+            if (driverClassName == null) {
+                throw new RuntimeException("Driver de base de données non configuré (database.driver)");
+            }
+            
+            Class.forName(driverClassName);
             
             // Établir la connexion
-            String url = configManager.getString("database.url");
-            String username = configManager.getString("database.username");
-            String password = configManager.getString("database.password");
+            String url = configManager.getString("database.url", "jdbc:h2:file:./angel-db");
+            String username = configManager.getString("database.username", "angel");
+            String password = configManager.getString("database.password", "angel123");
+            
+            if (url == null) {
+                throw new RuntimeException("URL de base de données non configurée (database.url)");
+            }
+            
+            LOGGER.log(Level.INFO, "Connexion à la base de données : {0}", url);
             
             connection = DriverManager.getConnection(url, username, password);
             
@@ -57,6 +71,9 @@ public class DatabaseManager {
         } catch (SQLException e) {
             LOGGER.log(Level.SEVERE, "Erreur lors de la connexion à la base de données", e);
             throw new RuntimeException("Impossible de se connecter à la base de données", e);
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Erreur lors de l'initialisation de la base de données", e);
+            throw new RuntimeException("Échec de l'initialisation de la base de données", e);
         }
     }
     
@@ -129,6 +146,7 @@ public class DatabaseManager {
         try {
             // Vérifier si la connexion est encore valide
             if (connection == null || connection.isClosed()) {
+                LOGGER.log(Level.WARNING, "Connexion fermée, reconnexion...");
                 initializeDatabase();
             }
         } catch (SQLException e) {
@@ -166,5 +184,20 @@ public class DatabaseManager {
             LOGGER.log(Level.WARNING, "Test de connexion échoué", e);
             return false;
         }
+    }
+    
+    /**
+     * Obtient les informations de configuration de la base de données.
+     * 
+     * @return Map contenant les informations de configuration (sans mot de passe)
+     */
+    public java.util.Map<String, String> getConfigInfo() {
+        java.util.Map<String, String> info = new java.util.HashMap<>();
+        info.put("url", configManager.getString("database.url", "N/A"));
+        info.put("driver", configManager.getString("database.driver", "N/A"));
+        info.put("username", configManager.getString("database.username", "N/A"));
+        // Masquer le mot de passe pour la sécurité
+        info.put("password", "***");
+        return info;
     }
 }
