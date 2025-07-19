@@ -38,10 +38,16 @@ public class AngelServerClient {
      */
     public AngelServerClient(ConfigManager configManager) {
         this.configManager = configManager;
+        
+        // Récupérer le timeout avec valeur par défaut
+        long timeoutMs = configManager.getLong("api.timeout", 5000L);
+        
         this.httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofMillis(configManager.getLong("api.timeout")))
+                .connectTimeout(Duration.ofMillis(timeoutMs))
                 .build();
         this.objectMapper = new ObjectMapper();
+        
+        LOGGER.log(Level.INFO, "AngelServerClient initialisé avec timeout: {0}ms", timeoutMs);
     }
     
     /**
@@ -50,34 +56,44 @@ public class AngelServerClient {
      * @return Une CompletableFuture qui contiendra l'activité détectée
      */
     public CompletableFuture<Activity> getCurrentActivity() {
-        String apiUrl = configManager.getString("api.angelServerUrl") + "/activity/current";
+        // Utiliser les noms de propriétés exacts définis dans application.properties
+        String baseUrl = configManager.getString("api.angel-server-url", "http://localhost:8080/api");
+        String apiUrl = baseUrl + "/activity/current";
+        long timeoutMs = configManager.getLong("api.timeout", 5000L);
         
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(apiUrl))
-                .timeout(Duration.ofMillis(configManager.getLong("api.timeout")))
-                .header("Accept", "application/json")
-                .GET()
-                .build();
+        LOGGER.log(Level.FINE, "Récupération de l'activité depuis: {0}", apiUrl);
         
-        return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                .thenApply(response -> {
-                    if (response.statusCode() != 200) {
-                        LOGGER.log(Level.WARNING, "Erreur lors de la récupération de l'activité: {0}", response.statusCode());
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(apiUrl))
+                    .timeout(Duration.ofMillis(timeoutMs))
+                    .header("Accept", "application/json")
+                    .GET()
+                    .build();
+            
+            return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                    .thenApply(response -> {
+                        if (response.statusCode() != 200) {
+                            LOGGER.log(Level.WARNING, "Erreur lors de la récupération de l'activité: {0}", response.statusCode());
+                            return Activity.UNKNOWN;
+                        }
+                        
+                        try {
+                            ActivityDTO activityDTO = objectMapper.readValue(response.body(), ActivityDTO.class);
+                            return Activity.valueOf(activityDTO.getActivityType());
+                        } catch (Exception e) {
+                            LOGGER.log(Level.SEVERE, "Erreur lors du traitement de la réponse de l'API", e);
+                            return Activity.UNKNOWN;
+                        }
+                    })
+                    .exceptionally(ex -> {
+                        LOGGER.log(Level.SEVERE, "Exception lors de l'appel à l'API", ex);
                         return Activity.UNKNOWN;
-                    }
-                    
-                    try {
-                        ActivityDTO activityDTO = objectMapper.readValue(response.body(), ActivityDTO.class);
-                        return Activity.valueOf(activityDTO.getActivityType());
-                    } catch (Exception e) {
-                        LOGGER.log(Level.SEVERE, "Erreur lors du traitement de la réponse de l'API", e);
-                        return Activity.UNKNOWN;
-                    }
-                })
-                .exceptionally(ex -> {
-                    LOGGER.log(Level.SEVERE, "Exception lors de l'appel à l'API", ex);
-                    return Activity.UNKNOWN;
-                });
+                    });
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Erreur lors de la création de la requête HTTP", e);
+            return CompletableFuture.completedFuture(Activity.UNKNOWN);
+        }
     }
     
     /**
@@ -88,45 +104,52 @@ public class AngelServerClient {
      * @return Une CompletableFuture qui contiendra la liste des activités avec leur timestamp
      */
     public CompletableFuture<Map<Long, Activity>> getActivityHistory(long fromTimestamp, long toTimestamp) {
-        String apiUrl = configManager.getString("api.angelServerUrl") + "/activity/history";
+        String baseUrl = configManager.getString("api.angel-server-url", "http://localhost:8080/api");
+        String apiUrl = baseUrl + "/activity/history";
+        long timeoutMs = configManager.getLong("api.timeout", 5000L);
         
         String queryParams = String.format("?from=%d&to=%d", fromTimestamp, toTimestamp);
         
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(apiUrl + queryParams))
-                .timeout(Duration.ofMillis(configManager.getLong("api.timeout")))
-                .header("Accept", "application/json")
-                .GET()
-                .build();
-        
-        return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                .thenApply(response -> {
-                    if (response.statusCode() != 200) {
-                        LOGGER.log(Level.WARNING, "Erreur lors de la récupération de l'historique: {0}", response.statusCode());
-                        return new HashMap<Long, Activity>();
-                    }
-                    
-                    try {
-                        List<ActivityDTO> activitiesDTO = objectMapper.readValue(
-                            response.body(),
-                            new TypeReference<List<ActivityDTO>>() {}
-                        );
-                        
-                        Map<Long, Activity> activityMap = new HashMap<>();
-                        for (ActivityDTO dto : activitiesDTO) {
-                            activityMap.put(dto.getTimestamp(), Activity.valueOf(dto.getActivityType()));
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(apiUrl + queryParams))
+                    .timeout(Duration.ofMillis(timeoutMs))
+                    .header("Accept", "application/json")
+                    .GET()
+                    .build();
+            
+            return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                    .thenApply(response -> {
+                        if (response.statusCode() != 200) {
+                            LOGGER.log(Level.WARNING, "Erreur lors de la récupération de l'historique: {0}", response.statusCode());
+                            return new HashMap<Long, Activity>();
                         }
                         
-                        return activityMap;
-                    } catch (Exception e) {
-                        LOGGER.log(Level.SEVERE, "Erreur lors du traitement de la réponse d'historique", e);
+                        try {
+                            List<ActivityDTO> activitiesDTO = objectMapper.readValue(
+                                response.body(),
+                                new TypeReference<List<ActivityDTO>>() {}
+                            );
+                            
+                            Map<Long, Activity> activityMap = new HashMap<>();
+                            for (ActivityDTO dto : activitiesDTO) {
+                                activityMap.put(dto.getTimestamp(), Activity.valueOf(dto.getActivityType()));
+                            }
+                            
+                            return activityMap;
+                        } catch (Exception e) {
+                            LOGGER.log(Level.SEVERE, "Erreur lors du traitement de la réponse d'historique", e);
+                            return new HashMap<Long, Activity>();
+                        }
+                    })
+                    .exceptionally(ex -> {
+                        LOGGER.log(Level.SEVERE, "Exception lors de l'appel à l'API d'historique", ex);
                         return new HashMap<Long, Activity>();
-                    }
-                })
-                .exceptionally(ex -> {
-                    LOGGER.log(Level.SEVERE, "Exception lors de l'appel à l'API d'historique", ex);
-                    return new HashMap<Long, Activity>();
-                });
+                    });
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Erreur lors de la création de la requête d'historique", e);
+            return CompletableFuture.completedFuture(new HashMap<>());
+        }
     }
     
     /**
@@ -135,20 +158,45 @@ public class AngelServerClient {
      * @return true si le serveur est accessible, false sinon
      */
     public boolean isServerAvailable() {
-        String apiUrl = configManager.getString("api.angelServerUrl") + "/health";
+        String baseUrl = configManager.getString("api.angel-server-url", "http://localhost:8080/api");
+        String apiUrl = baseUrl + "/health";
+        long timeoutMs = configManager.getLong("api.timeout", 5000L);
         
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(apiUrl))
-                .timeout(Duration.ofMillis(configManager.getLong("api.timeout")))
-                .GET()
-                .build();
+        LOGGER.log(Level.INFO, "Vérification de la disponibilité du serveur: {0}", apiUrl);
         
         try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(apiUrl))
+                    .timeout(Duration.ofMillis(timeoutMs))
+                    .GET()
+                    .build();
+            
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            return response.statusCode() == 200;
+            boolean available = response.statusCode() == 200;
+            
+            if (available) {
+                LOGGER.log(Level.INFO, "Serveur Angel-capture accessible");
+            } else {
+                LOGGER.log(Level.WARNING, "Serveur Angel-capture retourne le code: {0}", response.statusCode());
+            }
+            
+            return available;
         } catch (Exception e) {
-            LOGGER.log(Level.WARNING, "Le serveur Angel-capture est inaccessible", e);
+            LOGGER.log(Level.WARNING, "Le serveur Angel-capture est inaccessible: {0}", e.getMessage());
             return false;
         }
+    }
+    
+    /**
+     * Obtient les informations de configuration de l'API.
+     * 
+     * @return Map contenant les informations de configuration
+     */
+    public Map<String, Object> getApiInfo() {
+        Map<String, Object> info = new HashMap<>();
+        info.put("baseUrl", configManager.getString("api.angel-server-url", "N/A"));
+        info.put("timeout", configManager.getLong("api.timeout", 5000L));
+        info.put("pollingInterval", configManager.getLong("api.polling-interval", 30000L));
+        return info;
     }
 }
