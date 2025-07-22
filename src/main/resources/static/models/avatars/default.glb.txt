@@ -1,0 +1,2 @@
+// This file serves as a reference for the default.glb model that should be placed here
+// For now, this is handled in the code by using existing models as fallbacks
