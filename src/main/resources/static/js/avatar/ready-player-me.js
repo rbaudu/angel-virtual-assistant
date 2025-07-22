@@ -6,18 +6,24 @@
 class ReadyPlayerMeIntegration {
     constructor(config) {
         this.config = config;
-        this.apiKey = config.get('readyPlayerMe.apiKey');
-        this.baseUrl = config.get('readyPlayerMe.baseUrl', 'https://api.readyplayer.me/v1');
-        this.quality = config.get('readyPlayerMe.quality', 'high');
-        this.format = config.get('readyPlayerMe.format', 'glb');
+        this.apiKey = config.get ? config.get('readyPlayerMe.apiKey') : null;
+        this.baseUrl = config.get ? config.get('readyPlayerMe.baseUrl', 'https://api.readyplayer.me/v1') : 'https://api.readyplayer.me/v1';
+        this.quality = config.get ? config.get('readyPlayerMe.quality', 'high') : 'high';
+        this.format = config.get ? config.get('readyPlayerMe.format', 'glb') : 'glb';
         
         this.avatarCache = new Map();
-        this.isEnabled = config.isEnabled('readyPlayerMe.enabled');
+        this.isEnabled = config.get ? config.get('readyPlayerMe.enabled', false) : false;
         
-        if (this.isEnabled && (!this.apiKey || this.apiKey === 'YOUR_READY_PLAYER_ME_API_KEY_HERE')) {
-            console.warn('Ready Player Me activé mais clé API manquante ou invalide');
-            this.isEnabled = false;
+        if (this.isEnabled && (!this.apiKey || this.apiKey === 'YOUR_READY_PLAYER_ME_API_KEY_HERE' || this.apiKey === 'sk_live_9sLzff5a6lLPsJJG0H-faoOFtT5KOqZylijz')) {
+            console.warn('Ready Player Me activé mais clé API manquante ou de test');
+            // On garde enabled=true car la clé pourrait être valide depuis le serveur
         }
+        
+        console.log('🎮 ReadyPlayerMe init:', {
+            enabled: this.isEnabled,
+            hasApiKey: !!this.apiKey,
+            apiKey: this.apiKey ? this.apiKey.substring(0, 10) + '...' : 'none'
+        });
     }
     
     /**
@@ -25,6 +31,35 @@ class ReadyPlayerMeIntegration {
      */
     isAvailable() {
         return this.isEnabled && !!this.apiKey;
+    }
+    
+    /**
+     * Obtient l'URL du modèle 3D d'un avatar Ready Player Me directement
+     */
+    async getAvatarModelUrl(avatarId) {
+        if (!avatarId) {
+            return this.getFallbackModelUrl();
+        }
+        
+        // Pour Ready Player Me, l'URL publique est : https://models.readyplayer.me/{id}.glb
+        const publicUrl = `https://models.readyplayer.me/${avatarId}.glb`;
+        
+        try {
+            // Tester l'accès direct au modèle (pas besoin de clé API pour les modèles publics)
+            const response = await fetch(publicUrl, { method: 'HEAD' });
+            
+            if (response.ok) {
+                console.log('✅ Modèle Ready Player Me trouvé:', publicUrl);
+                return publicUrl;
+            } else {
+                console.warn(`⚠️ Modèle Ready Player Me non accessible: ${avatarId}`);
+                return this.getFallbackModelUrl();
+            }
+            
+        } catch (error) {
+            console.error('❌ Erreur test Ready Player Me:', error);
+            return this.getFallbackModelUrl();
+        }
     }
     
     /**
@@ -63,45 +98,6 @@ class ReadyPlayerMeIntegration {
         } catch (error) {
             console.error('Erreur lors de la création de l\'avatar:', error);
             throw error;
-        }
-    }
-    
-    /**
-     * Obtient l'URL du modèle 3D d'un avatar
-     */
-    async getAvatarModelUrl(avatarId) {
-        if (!this.isAvailable()) {
-            return this.getFallbackModelUrl();
-        }
-        
-        // Vérifier le cache d'abord
-        const cacheKey = `${avatarId}_${this.quality}_${this.format}`;
-        if (this.avatarCache.has(cacheKey)) {
-            return this.avatarCache.get(cacheKey);
-        }
-        
-        try {
-            const url = `${this.baseUrl}/avatars/${avatarId}.${this.format}?quality=${this.quality}`;
-            
-            // Vérifier que l'avatar existe
-            const response = await fetch(url, {
-                method: 'HEAD',
-                headers: {
-                    'Authorization': `Bearer ${this.apiKey}`
-                }
-            });
-            
-            if (response.ok) {
-                this.avatarCache.set(cacheKey, url);
-                return url;
-            } else {
-                console.warn(`Avatar Ready Player Me non trouvé: ${avatarId}`);
-                return this.getFallbackModelUrl();
-            }
-            
-        } catch (error) {
-            console.error('Erreur lors de l\'obtention de l\'URL du modèle:', error);
-            return this.getFallbackModelUrl();
         }
     }
     
@@ -290,12 +286,24 @@ class ReadyPlayerMeIntegration {
      * Obtient l'URL du modèle de fallback
      */
     getFallbackModelUrl() {
-        const gender = this.config.get('appearance.gender', 'female');
-        const age = this.config.get('appearance.age', 30);
-        const basePath = this.config.get('fallbackModels.basePath', '/static/models/avatars/');
+        const gender = this.config.get ? this.config.get('appearance.gender', 'female') : 'female';
+        const age = this.config.get ? this.config.get('appearance.age', 30) : 30;
+        const basePath = '/models/avatars/';
         
         const ageGroup = this.determineAgeGroup(age);
-        const modelFile = this.config.get(`fallbackModels.${gender}.${ageGroup}`, 'default_avatar.glb');
+        
+        // Mappage simplifié basé sur les fichiers disponibles
+        const fallbackMap = {
+            'female-mature': 'female_mature_elegant.glb',
+            'female-adult': 'female_adult_casual.glb',
+            'female-young': 'female_young_casual.glb',
+            'male-mature': 'male_mature_distinguished.glb',
+            'male-adult': 'male_adult_professional.glb',
+            'male-young': 'male_young_casual.glb'
+        };
+        
+        const key = `${gender}-${ageGroup}`;
+        const modelFile = fallbackMap[key] || 'female_mature_elegant.glb';
         
         return basePath + modelFile;
     }
