@@ -1,1 +1,506 @@
-/**\n * Gestionnaire d'animations avancées pour l'avatar 3D\n * Gère la synchronisation labiale, les expressions faciales et les animations corporelles\n */\n\nclass AvatarAnimationManager {\n    constructor(avatarModel, mixer) {\n        this.avatarModel = avatarModel;\n        this.mixer = mixer;\n        \n        // Animations et actions\n        this.animations = new Map();\n        this.activeActions = new Map();\n        this.morphTargets = new Map();\n        \n        // État des animations\n        this.currentBaseAnimation = null;\n        this.currentEmotion = 'neutral';\n        this.isBlinking = false;\n        this.isSpeaking = false;\n        \n        // Timers et intervalles\n        this.blinkInterval = null;\n        this.idleMovementInterval = null;\n        \n        // Configuration\n        this.config = {\n            blinking: {\n                enabled: true,\n                frequency: 3500, // ms\n                duration: 150,   // ms\n                randomness: 0.4\n            },\n            lipSync: {\n                enabled: true,\n                smoothing: 0.3,\n                anticipation: 50 // ms\n            },\n            idleMovement: {\n                enabled: true,\n                frequency: 8000, // ms\n                intensity: 0.2\n            }\n        };\n        \n        this.initialize();\n    }\n    \n    /**\n     * Initialise le gestionnaire d'animations\n     */\n    initialize() {\n        this.setupMorphTargets();\n        this.startBlinking();\n        this.startIdleMovements();\n        \n        console.log('Gestionnaire d\\'animations initialisé');\n    }\n    \n    /**\n     * Configure les morph targets pour les expressions faciales\n     */\n    setupMorphTargets() {\n        this.avatarModel.traverse((child) => {\n            if (child.isMesh && child.morphTargetInfluences) {\n                const morphTargetDict = child.morphTargetDictionary;\n                if (morphTargetDict) {\n                    // Mappage des visemes pour la synchronisation labiale\n                    const visemeMapping = {\n                        'A': ['viseme_AA', 'mouthOpen'],\n                        'B': ['viseme_PP', 'mouthClosed'],\n                        'C': ['viseme_CH', 'mouthNarrow'],\n                        'D': ['viseme_DD', 'mouthPress'],\n                        'E': ['viseme_E', 'mouthSmile'],\n                        'F': ['viseme_FF', 'mouthFrown'],\n                        'G': ['viseme_kk', 'mouthWide'],\n                        'H': ['viseme_I', 'mouthTight'],\n                        'X': ['viseme_sil', 'mouthRest']\n                    };\n                    \n                    // Mappage des émotions\n                    const emotionMapping = {\n                        'happy': ['browInnerUp', 'eyeSquintLeft', 'eyeSquintRight', 'mouthSmileLeft', 'mouthSmileRight'],\n                        'sad': ['browDownLeft', 'browDownRight', 'mouthFrownLeft', 'mouthFrownRight'],\n                        'surprised': ['browInnerUp', 'eyeWideLeft', 'eyeWideRight', 'mouthFunnel'],\n                        'angry': ['browDownLeft', 'browDownRight', 'eyeSquintLeft', 'eyeSquintRight'],\n                        'concerned': ['browInnerUp', 'mouthPress'],\n                        'thoughtful': ['browDownLeft', 'browDownRight', 'mouthPucker'],\n                        'neutral': []\n                    };\n                    \n                    // Stocker les indices des morph targets\n                    for (const [viseme, targets] of Object.entries(visemeMapping)) {\n                        for (const target of targets) {\n                            if (target in morphTargetDict) {\n                                if (!this.morphTargets.has('visemes')) {\n                                    this.morphTargets.set('visemes', new Map());\n                                }\n                                this.morphTargets.get('visemes').set(viseme, {\n                                    mesh: child,\n                                    index: morphTargetDict[target]\n                                });\n                            }\n                        }\n                    }\n                    \n                    for (const [emotion, targets] of Object.entries(emotionMapping)) {\n                        for (const target of targets) {\n                            if (target in morphTargetDict) {\n                                if (!this.morphTargets.has('emotions')) {\n                                    this.morphTargets.set('emotions', new Map());\n                                }\n                                if (!this.morphTargets.get('emotions').has(emotion)) {\n                                    this.morphTargets.get('emotions').set(emotion, []);\n                                }\n                                this.morphTargets.get('emotions').get(emotion).push({\n                                    mesh: child,\n                                    index: morphTargetDict[target]\n                                });\n                            }\n                        }\n                    }\n                    \n                    // Clignement des yeux\n                    const blinkTargets = ['eyeBlinkLeft', 'eyeBlinkRight'];\n                    for (const target of blinkTargets) {\n                        if (target in morphTargetDict) {\n                            if (!this.morphTargets.has('blink')) {\n                                this.morphTargets.set('blink', []);\n                            }\n                            this.morphTargets.get('blink').push({\n                                mesh: child,\n                                index: morphTargetDict[target]\n                            });\n                        }\n                    }\n                }\n            }\n        });\n        \n        console.log('Morph targets configurés:', Array.from(this.morphTargets.keys()));\n    }\n    \n    /**\n     * Joue une animation par son nom\n     */\n    playAnimation(name, options = {}) {\n        if (!this.animations.has(name)) {\n            console.warn(`Animation '${name}' non trouvée`);\n            return null;\n        }\n        \n        const clip = this.animations.get(name);\n        const action = this.mixer.clipAction(clip);\n        \n        // Configuration de l'action\n        action.reset();\n        action.setEffectiveTimeScale(options.speed || 1);\n        action.setEffectiveWeight(options.weight || 1);\n        \n        if (options.loop) {\n            action.setLoop(THREE.LoopRepeat);\n        } else {\n            action.setLoop(THREE.LoopOnce);\n            action.clampWhenFinished = true;\n        }\n        \n        // Transition\n        if (options.fadeIn) {\n            action.fadeIn(options.fadeIn);\n        } else {\n            action.play();\n        }\n        \n        // Stocker l'action active\n        this.activeActions.set(name, action);\n        \n        return action;\n    }\n    \n    /**\n     * Arrête une animation\n     */\n    stopAnimation(name, fadeOut = 0.5) {\n        if (this.activeActions.has(name)) {\n            const action = this.activeActions.get(name);\n            \n            if (fadeOut > 0) {\n                action.fadeOut(fadeOut);\n            } else {\n                action.stop();\n            }\n            \n            this.activeActions.delete(name);\n        }\n    }\n    \n    /**\n     * Change l'émotion de l'avatar\n     */\n    setEmotion(emotion, intensity = 0.7, duration = 0.8) {\n        if (emotion === this.currentEmotion) return;\n        \n        console.log(`Transition vers l'émotion: ${emotion}`);\n        \n        // Réinitialiser l'émotion précédente\n        this.resetEmotionMorphTargets();\n        \n        // Appliquer la nouvelle émotion\n        if (this.morphTargets.has('emotions') && this.morphTargets.get('emotions').has(emotion)) {\n            const targets = this.morphTargets.get('emotions').get(emotion);\n            \n            targets.forEach(target => {\n                this.animateMorphTarget(target.mesh, target.index, intensity, duration);\n            });\n        }\n        \n        this.currentEmotion = emotion;\n    }\n    \n    /**\n     * Synchronisation labiale avec un texte et des données de visemes\n     */\n    performLipSync(text, visemeData = null) {\n        if (!this.config.lipSync.enabled) return;\n        \n        console.log('Début de la synchronisation labiale:', text);\n        this.isSpeaking = true;\n        \n        if (visemeData && visemeData.length > 0) {\n            // Utiliser les données de visemes fournies\n            this.playVisemeSequence(visemeData);\n        } else {\n            // Générer une séquence de visemes basique\n            this.generateBasicLipSync(text);\n        }\n    }\n    \n    /**\n     * Joue une séquence de visemes\n     */\n    playVisemeSequence(visemeData) {\n        let timeOffset = 0;\n        \n        visemeData.forEach(viseme => {\n            setTimeout(() => {\n                this.setViseme(viseme.phoneme, viseme.intensity || 0.8);\n            }, timeOffset + viseme.time);\n            \n            timeOffset = viseme.time + viseme.duration;\n        });\n        \n        // Retour au repos après la séquence\n        setTimeout(() => {\n            this.setViseme('X', 0); // Position de repos\n            this.isSpeaking = false;\n        }, timeOffset + 200);\n    }\n    \n    /**\n     * Génère une synchronisation labiale basique\n     */\n    generateBasicLipSync(text) {\n        const phonemes = this.textToPhonemes(text);\n        const duration = text.length * 100; // Durée estimée\n        const phonemeDuration = duration / phonemes.length;\n        \n        phonemes.forEach((phoneme, index) => {\n            setTimeout(() => {\n                this.setViseme(phoneme, 0.7);\n            }, index * phonemeDuration);\n        });\n        \n        // Retour au repos\n        setTimeout(() => {\n            this.setViseme('X', 0);\n            this.isSpeaking = false;\n        }, duration);\n    }\n    \n    /**\n     * Convertit le texte en phonèmes basiques\n     */\n    textToPhonemes(text) {\n        // Mapping très simplifié français -> visemes\n        const phonemeMap = {\n            'a': 'A', 'à': 'A', 'â': 'A',\n            'e': 'E', 'é': 'E', 'è': 'E', 'ê': 'E',\n            'i': 'H', 'î': 'H',\n            'o': 'A', 'ô': 'A', 'ö': 'A',\n            'u': 'G', 'ù': 'G', 'û': 'G',\n            'b': 'B', 'p': 'B', 'm': 'B',\n            'f': 'F', 'v': 'F',\n            'l': 'D', 'n': 'D', 't': 'D',\n            'c': 'C', 'k': 'C', 'g': 'C',\n            'r': 'G', 'j': 'C',\n            ' ': 'X'\n        };\n        \n        return text.toLowerCase().split('').map(char => \n            phonemeMap[char] || 'X'\n        ).filter((phoneme, index, arr) => \n            phoneme !== arr[index - 1] // Éliminer les doublons consécutifs\n        );\n    }\n    \n    /**\n     * Définit un viseme spécifique\n     */\n    setViseme(viseme, intensity) {\n        // Réinitialiser tous les visemes\n        this.resetVisemeMorphTargets();\n        \n        // Appliquer le nouveau viseme\n        if (this.morphTargets.has('visemes') && this.morphTargets.get('visemes').has(viseme)) {\n            const target = this.morphTargets.get('visemes').get(viseme);\n            this.setMorphTarget(target.mesh, target.index, intensity);\n        }\n    }\n    \n    /**\n     * Démarre le système de clignement automatique\n     */\n    startBlinking() {\n        if (!this.config.blinking.enabled) return;\n        \n        const scheduleNextBlink = () => {\n            const baseInterval = this.config.blinking.frequency;\n            const randomness = this.config.blinking.randomness;\n            const nextBlink = baseInterval + (Math.random() - 0.5) * baseInterval * randomness;\n            \n            this.blinkInterval = setTimeout(() => {\n                this.performBlink();\n                scheduleNextBlink();\n            }, nextBlink);\n        };\n        \n        scheduleNextBlink();\n        console.log('Clignement automatique activé');\n    }\n    \n    /**\n     * Effectue un clignement\n     */\n    performBlink() {\n        if (this.isBlinking || this.isSpeaking) return;\n        \n        this.isBlinking = true;\n        const duration = this.config.blinking.duration;\n        \n        // Fermer les yeux\n        this.setBlinkTargets(1.0);\n        \n        // Rouvrir les yeux\n        setTimeout(() => {\n            this.setBlinkTargets(0.0);\n            this.isBlinking = false;\n        }, duration);\n    }\n    \n    /**\n     * Contrôle les morph targets de clignement\n     */\n    setBlinkTargets(value) {\n        if (this.morphTargets.has('blink')) {\n            this.morphTargets.get('blink').forEach(target => {\n                this.setMorphTarget(target.mesh, target.index, value);\n            });\n        }\n    }\n    \n    /**\n     * Démarre les mouvements d'attente\n     */\n    startIdleMovements() {\n        if (!this.config.idleMovement.enabled) return;\n        \n        this.idleMovementInterval = setInterval(() => {\n            this.performIdleMovement();\n        }, this.config.idleMovement.frequency);\n        \n        console.log('Mouvements d\\'attente activés');\n    }\n    \n    /**\n     * Effectue un petit mouvement d'attente\n     */\n    performIdleMovement() {\n        if (this.isSpeaking) return;\n        \n        const intensity = this.config.idleMovement.intensity;\n        const movements = [\n            { type: 'head', axis: 'y', amount: (Math.random() - 0.5) * intensity },\n            { type: 'head', axis: 'x', amount: (Math.random() - 0.5) * intensity * 0.5 },\n            { type: 'eye', direction: Math.random() > 0.5 ? 'left' : 'right' }\n        ];\n        \n        const movement = movements[Math.floor(Math.random() * movements.length)];\n        this.applyIdleMovement(movement);\n    }\n    \n    /**\n     * Applique un mouvement d'attente\n     */\n    applyIdleMovement(movement) {\n        // Implémentation des mouvements subtils\n        // (nécessiterait l'accès aux bones de l'avatar)\n        console.log('Mouvement d\\'attente:', movement);\n    }\n    \n    /**\n     * Anime un morph target vers une valeur cible\n     */\n    animateMorphTarget(mesh, index, targetValue, duration) {\n        const startValue = mesh.morphTargetInfluences[index] || 0;\n        const startTime = Date.now();\n        \n        const animate = () => {\n            const elapsed = Date.now() - startTime;\n            const progress = Math.min(elapsed / (duration * 1000), 1);\n            \n            // Interpolation smooth\n            const easeProgress = 0.5 * (1 - Math.cos(progress * Math.PI));\n            const currentValue = startValue + (targetValue - startValue) * easeProgress;\n            \n            mesh.morphTargetInfluences[index] = currentValue;\n            \n            if (progress < 1) {\n                requestAnimationFrame(animate);\n            }\n        };\n        \n        animate();\n    }\n    \n    /**\n     * Définit directement un morph target\n     */\n    setMorphTarget(mesh, index, value) {\n        if (mesh.morphTargetInfluences && index < mesh.morphTargetInfluences.length) {\n            mesh.morphTargetInfluences[index] = Math.max(0, Math.min(1, value));\n        }\n    }\n    \n    /**\n     * Réinitialise tous les morph targets d'émotion\n     */\n    resetEmotionMorphTargets() {\n        if (this.morphTargets.has('emotions')) {\n            this.morphTargets.get('emotions').forEach(targets => {\n                targets.forEach(target => {\n                    this.setMorphTarget(target.mesh, target.index, 0);\n                });\n            });\n        }\n    }\n    \n    /**\n     * Réinitialise tous les morph targets de visemes\n     */\n    resetVisemeMorphTargets() {\n        if (this.morphTargets.has('visemes')) {\n            this.morphTargets.get('visemes').forEach(target => {\n                this.setMorphTarget(target.mesh, target.index, 0);\n            });\n        }\n    }\n    \n    /**\n     * Arrête le clignement automatique\n     */\n    stopBlinking() {\n        if (this.blinkInterval) {\n            clearTimeout(this.blinkInterval);\n            this.blinkInterval = null;\n        }\n    }\n    \n    /**\n     * Arrête les mouvements d'attente\n     */\n    stopIdleMovements() {\n        if (this.idleMovementInterval) {\n            clearInterval(this.idleMovementInterval);\n            this.idleMovementInterval = null;\n        }\n    }\n    \n    /**\n     * Nettoie les ressources\n     */\n    dispose() {\n        this.stopBlinking();\n        this.stopIdleMovements();\n        \n        this.activeActions.forEach(action => action.stop());\n        this.activeActions.clear();\n        this.animations.clear();\n        this.morphTargets.clear();\n        \n        console.log('Gestionnaire d\\'animations nettoyé');\n    }\n}\n\n// Export global\nwindow.AvatarAnimationManager = AvatarAnimationManager;"
+/**
+ * Gestionnaire d'animations avancées pour l'avatar 3D
+ * Gère la synchronisation labiale, les expressions faciales et les animations corporelles
+ */
+
+class AvatarAnimationManager {
+    constructor(avatarModel, mixer) {
+        this.avatarModel = avatarModel;
+        this.mixer = mixer;
+        
+        // Animations et actions
+        this.animations = new Map();
+        this.activeActions = new Map();
+        this.morphTargets = new Map();
+        
+        // État des animations
+        this.currentBaseAnimation = null;
+        this.currentEmotion = 'neutral';
+        this.isBlinking = false;
+        this.isSpeaking = false;
+        
+        // Timers et intervalles
+        this.blinkInterval = null;
+        this.idleMovementInterval = null;
+        
+        // Configuration
+        this.config = {
+            blinking: {
+                enabled: true,
+                frequency: 3500, // ms
+                duration: 150,   // ms
+                randomness: 0.4
+            },
+            lipSync: {
+                enabled: true,
+                smoothing: 0.3,
+                anticipation: 50 // ms
+            },
+            idleMovement: {
+                enabled: true,
+                frequency: 8000, // ms
+                intensity: 0.2
+            }
+        };
+        
+        this.initialize();
+    }
+    
+    /**
+     * Initialise le gestionnaire d'animations
+     */
+    initialize() {
+        this.setupMorphTargets();
+        this.startBlinking();
+        this.startIdleMovements();
+        
+        console.log('Gestionnaire d\'animations initialisé');
+    }
+    
+    /**
+     * Configure les morph targets pour les expressions faciales
+     */
+    setupMorphTargets() {
+        this.avatarModel.traverse((child) => {
+            if (child.isMesh && child.morphTargetInfluences) {
+                const morphTargetDict = child.morphTargetDictionary;
+                if (morphTargetDict) {
+                    // Mappage des visemes pour la synchronisation labiale
+                    const visemeMapping = {
+                        'A': ['viseme_AA', 'mouthOpen'],
+                        'B': ['viseme_PP', 'mouthClosed'],
+                        'C': ['viseme_CH', 'mouthNarrow'],
+                        'D': ['viseme_DD', 'mouthPress'],
+                        'E': ['viseme_E', 'mouthSmile'],
+                        'F': ['viseme_FF', 'mouthFrown'],
+                        'G': ['viseme_kk', 'mouthWide'],
+                        'H': ['viseme_I', 'mouthTight'],
+                        'X': ['viseme_sil', 'mouthRest']
+                    };
+                    
+                    // Mappage des émotions
+                    const emotionMapping = {
+                        'happy': ['browInnerUp', 'eyeSquintLeft', 'eyeSquintRight', 'mouthSmileLeft', 'mouthSmileRight'],
+                        'sad': ['browDownLeft', 'browDownRight', 'mouthFrownLeft', 'mouthFrownRight'],
+                        'surprised': ['browInnerUp', 'eyeWideLeft', 'eyeWideRight', 'mouthFunnel'],
+                        'angry': ['browDownLeft', 'browDownRight', 'eyeSquintLeft', 'eyeSquintRight'],
+                        'concerned': ['browInnerUp', 'mouthPress'],
+                        'thoughtful': ['browDownLeft', 'browDownRight', 'mouthPucker'],
+                        'neutral': []
+                    };
+                    
+                    // Stocker les indices des morph targets
+                    for (const [viseme, targets] of Object.entries(visemeMapping)) {
+                        for (const target of targets) {
+                            if (target in morphTargetDict) {
+                                if (!this.morphTargets.has('visemes')) {
+                                    this.morphTargets.set('visemes', new Map());
+                                }
+                                this.morphTargets.get('visemes').set(viseme, {
+                                    mesh: child,
+                                    index: morphTargetDict[target]
+                                });
+                            }
+                        }
+                    }
+                    
+                    for (const [emotion, targets] of Object.entries(emotionMapping)) {
+                        for (const target of targets) {
+                            if (target in morphTargetDict) {
+                                if (!this.morphTargets.has('emotions')) {
+                                    this.morphTargets.set('emotions', new Map());
+                                }
+                                if (!this.morphTargets.get('emotions').has(emotion)) {
+                                    this.morphTargets.get('emotions').set(emotion, []);
+                                }
+                                this.morphTargets.get('emotions').get(emotion).push({
+                                    mesh: child,
+                                    index: morphTargetDict[target]
+                                });
+                            }
+                        }
+                    }
+                    
+                    // Clignement des yeux
+                    const blinkTargets = ['eyeBlinkLeft', 'eyeBlinkRight'];
+                    for (const target of blinkTargets) {
+                        if (target in morphTargetDict) {
+                            if (!this.morphTargets.has('blink')) {
+                                this.morphTargets.set('blink', []);
+                            }
+                            this.morphTargets.get('blink').push({
+                                mesh: child,
+                                index: morphTargetDict[target]
+                            });
+                        }
+                    }
+                }
+            }
+        });
+        
+        console.log('Morph targets configurés:', Array.from(this.morphTargets.keys()));
+    }
+    
+    /**
+     * Joue une animation par son nom
+     */
+    playAnimation(name, options = {}) {
+        if (!this.animations.has(name)) {
+            console.warn(`Animation '${name}' non trouvée`);
+            return null;
+        }
+        
+        const clip = this.animations.get(name);
+        const action = this.mixer.clipAction(clip);
+        
+        // Configuration de l'action
+        action.reset();
+        action.setEffectiveTimeScale(options.speed || 1);
+        action.setEffectiveWeight(options.weight || 1);
+        
+        if (options.loop) {
+            action.setLoop(THREE.LoopRepeat);
+        } else {
+            action.setLoop(THREE.LoopOnce);
+            action.clampWhenFinished = true;
+        }
+        
+        // Transition
+        if (options.fadeIn) {
+            action.fadeIn(options.fadeIn);
+        } else {
+            action.play();
+        }
+        
+        // Stocker l'action active
+        this.activeActions.set(name, action);
+        
+        return action;
+    }
+    
+    /**
+     * Arrête une animation
+     */
+    stopAnimation(name, fadeOut = 0.5) {
+        if (this.activeActions.has(name)) {
+            const action = this.activeActions.get(name);
+            
+            if (fadeOut > 0) {
+                action.fadeOut(fadeOut);
+            } else {
+                action.stop();
+            }
+            
+            this.activeActions.delete(name);
+        }
+    }
+    
+    /**
+     * Change l'émotion de l'avatar
+     */
+    setEmotion(emotion, intensity = 0.7, duration = 0.8) {
+        if (emotion === this.currentEmotion) return;
+        
+        console.log(`Transition vers l'émotion: ${emotion}`);
+        
+        // Réinitialiser l'émotion précédente
+        this.resetEmotionMorphTargets();
+        
+        // Appliquer la nouvelle émotion
+        if (this.morphTargets.has('emotions') && this.morphTargets.get('emotions').has(emotion)) {
+            const targets = this.morphTargets.get('emotions').get(emotion);
+            
+            targets.forEach(target => {
+                this.animateMorphTarget(target.mesh, target.index, intensity, duration);
+            });
+        }
+        
+        this.currentEmotion = emotion;
+    }
+    
+    /**
+     * Synchronisation labiale avec un texte et des données de visemes
+     */
+    performLipSync(text, visemeData = null) {
+        if (!this.config.lipSync.enabled) return;
+        
+        console.log('Début de la synchronisation labiale:', text);
+        this.isSpeaking = true;
+        
+        if (visemeData && visemeData.length > 0) {
+            // Utiliser les données de visemes fournies
+            this.playVisemeSequence(visemeData);
+        } else {
+            // Générer une séquence de visemes basique
+            this.generateBasicLipSync(text);
+        }
+    }
+    
+    /**
+     * Joue une séquence de visemes
+     */
+    playVisemeSequence(visemeData) {
+        let timeOffset = 0;
+        
+        visemeData.forEach(viseme => {
+            setTimeout(() => {
+                this.setViseme(viseme.phoneme, viseme.intensity || 0.8);
+            }, timeOffset + viseme.time);
+            
+            timeOffset = viseme.time + viseme.duration;
+        });
+        
+        // Retour au repos après la séquence
+        setTimeout(() => {
+            this.setViseme('X', 0); // Position de repos
+            this.isSpeaking = false;
+        }, timeOffset + 200);
+    }
+    
+    /**
+     * Génère une synchronisation labiale basique
+     */
+    generateBasicLipSync(text) {
+        const phonemes = this.textToPhonemes(text);
+        const duration = text.length * 100; // Durée estimée
+        const phonemeDuration = duration / phonemes.length;
+        
+        phonemes.forEach((phoneme, index) => {
+            setTimeout(() => {
+                this.setViseme(phoneme, 0.7);
+            }, index * phonemeDuration);
+        });
+        
+        // Retour au repos
+        setTimeout(() => {
+            this.setViseme('X', 0);
+            this.isSpeaking = false;
+        }, duration);
+    }
+    
+    /**
+     * Convertit le texte en phonèmes basiques
+     */
+    textToPhonemes(text) {
+        // Mapping très simplifié français -> visemes
+        const phonemeMap = {
+            'a': 'A', 'à': 'A', 'â': 'A',
+            'e': 'E', 'é': 'E', 'è': 'E', 'ê': 'E',
+            'i': 'H', 'î': 'H',
+            'o': 'A', 'ô': 'A', 'ö': 'A',
+            'u': 'G', 'ù': 'G', 'û': 'G',
+            'b': 'B', 'p': 'B', 'm': 'B',
+            'f': 'F', 'v': 'F',
+            'l': 'D', 'n': 'D', 't': 'D',
+            'c': 'C', 'k': 'C', 'g': 'C',
+            'r': 'G', 'j': 'C',
+            ' ': 'X'
+        };
+        
+        return text.toLowerCase().split('').map(char => 
+            phonemeMap[char] || 'X'
+        ).filter((phoneme, index, arr) => 
+            phoneme !== arr[index - 1] // Éliminer les doublons consécutifs
+        );
+    }
+    
+    /**
+     * Définit un viseme spécifique
+     */
+    setViseme(viseme, intensity) {
+        // Réinitialiser tous les visemes
+        this.resetVisemeMorphTargets();
+        
+        // Appliquer le nouveau viseme
+        if (this.morphTargets.has('visemes') && this.morphTargets.get('visemes').has(viseme)) {
+            const target = this.morphTargets.get('visemes').get(viseme);
+            this.setMorphTarget(target.mesh, target.index, intensity);
+        }
+    }
+    
+    /**
+     * Démarre le système de clignement automatique
+     */
+    startBlinking() {
+        if (!this.config.blinking.enabled) return;
+        
+        const scheduleNextBlink = () => {
+            const baseInterval = this.config.blinking.frequency;
+            const randomness = this.config.blinking.randomness;
+            const nextBlink = baseInterval + (Math.random() - 0.5) * baseInterval * randomness;
+            
+            this.blinkInterval = setTimeout(() => {
+                this.performBlink();
+                scheduleNextBlink();
+            }, nextBlink);
+        };
+        
+        scheduleNextBlink();
+        console.log('Clignement automatique activé');
+    }
+    
+    /**
+     * Effectue un clignement
+     */
+    performBlink() {
+        if (this.isBlinking || this.isSpeaking) return;
+        
+        this.isBlinking = true;
+        const duration = this.config.blinking.duration;
+        
+        // Fermer les yeux
+        this.setBlinkTargets(1.0);
+        
+        // Rouvrir les yeux
+        setTimeout(() => {
+            this.setBlinkTargets(0.0);
+            this.isBlinking = false;
+        }, duration);
+    }
+    
+    /**
+     * Contrôle les morph targets de clignement
+     */
+    setBlinkTargets(value) {
+        if (this.morphTargets.has('blink')) {
+            this.morphTargets.get('blink').forEach(target => {
+                this.setMorphTarget(target.mesh, target.index, value);
+            });
+        }
+    }
+    
+    /**
+     * Démarre les mouvements d'attente
+     */
+    startIdleMovements() {
+        if (!this.config.idleMovement.enabled) return;
+        
+        this.idleMovementInterval = setInterval(() => {
+            this.performIdleMovement();
+        }, this.config.idleMovement.frequency);
+        
+        console.log('Mouvements d\'attente activés');
+    }
+    
+    /**
+     * Effectue un petit mouvement d'attente
+     */
+    performIdleMovement() {
+        if (this.isSpeaking) return;
+        
+        const intensity = this.config.idleMovement.intensity;
+        const movements = [
+            { type: 'head', axis: 'y', amount: (Math.random() - 0.5) * intensity },
+            { type: 'head', axis: 'x', amount: (Math.random() - 0.5) * intensity * 0.5 },
+            { type: 'eye', direction: Math.random() > 0.5 ? 'left' : 'right' }
+        ];
+        
+        const movement = movements[Math.floor(Math.random() * movements.length)];
+        this.applyIdleMovement(movement);
+    }
+    
+    /**
+     * Applique un mouvement d'attente
+     */
+    applyIdleMovement(movement) {
+        // Implémentation des mouvements subtils
+        // (nécessiterait l'accès aux bones de l'avatar)
+        console.log('Mouvement d\'attente:', movement);
+    }
+    
+    /**
+     * Anime un morph target vers une valeur cible
+     */
+    animateMorphTarget(mesh, index, targetValue, duration) {
+        const startValue = mesh.morphTargetInfluences[index] || 0;
+        const startTime = Date.now();
+        
+        const animate = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / (duration * 1000), 1);
+            
+            // Interpolation smooth
+            const easeProgress = 0.5 * (1 - Math.cos(progress * Math.PI));
+            const currentValue = startValue + (targetValue - startValue) * easeProgress;
+            
+            mesh.morphTargetInfluences[index] = currentValue;
+            
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            }
+        };
+        
+        animate();
+    }
+    
+    /**
+     * Définit directement un morph target
+     */
+    setMorphTarget(mesh, index, value) {
+        if (mesh.morphTargetInfluences && index < mesh.morphTargetInfluences.length) {
+            mesh.morphTargetInfluences[index] = Math.max(0, Math.min(1, value));
+        }
+    }
+    
+    /**
+     * Réinitialise tous les morph targets d'émotion
+     */
+    resetEmotionMorphTargets() {
+        if (this.morphTargets.has('emotions')) {
+            this.morphTargets.get('emotions').forEach(targets => {
+                targets.forEach(target => {
+                    this.setMorphTarget(target.mesh, target.index, 0);
+                });
+            });
+        }
+    }
+    
+    /**
+     * Réinitialise tous les morph targets de visemes
+     */
+    resetVisemeMorphTargets() {
+        if (this.morphTargets.has('visemes')) {
+            this.morphTargets.get('visemes').forEach(target => {
+                this.setMorphTarget(target.mesh, target.index, 0);
+            });
+        }
+    }
+    
+    /**
+     * Arrête le clignement automatique
+     */
+    stopBlinking() {
+        if (this.blinkInterval) {
+            clearTimeout(this.blinkInterval);
+            this.blinkInterval = null;
+        }
+    }
+    
+    /**
+     * Arrête les mouvements d'attente
+     */
+    stopIdleMovements() {
+        if (this.idleMovementInterval) {
+            clearInterval(this.idleMovementInterval);
+            this.idleMovementInterval = null;
+        }
+    }
+    
+    /**
+     * Nettoie les ressources
+     */
+    dispose() {
+        this.stopBlinking();
+        this.stopIdleMovements();
+        
+        this.activeActions.forEach(action => action.stop());
+        this.activeActions.clear();
+        this.animations.clear();
+        this.morphTargets.clear();
+        
+        console.log('Gestionnaire d\'animations nettoyé');
+    }
+}
+
+// Export global
+window.AvatarAnimationManager = AvatarAnimationManager;
