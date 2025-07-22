@@ -1,1 +1,679 @@
-/**\n * Contrôleur principal de l'avatar 3D\n * Coordonne le rendu, les animations, la communication WebSocket et Ready Player Me\n */\n\nclass AvatarController {\n    constructor() {\n        this.config = null;\n        this.renderer = null;\n        this.websocket = null;\n        this.readyPlayerMe = null;\n        \n        this.isInitialized = false;\n        this.currentEmotion = 'neutral';\n        this.currentAvatarId = null;\n        \n        // Éléments DOM\n        this.container = null;\n        this.statusElement = null;\n        this.speechBubble = null;\n        this.controls = null;\n        \n        this.setupEventListeners();\n    }\n    \n    /**\n     * Initialise le contrôleur d'avatar\n     */\n    async initialize() {\n        try {\n            console.log('Initialisation du contrôleur d\\'avatar...');\n            \n            // Initialiser la configuration\n            this.config = new AvatarConfig();\n            await this.waitForConfigLoad();\n            \n            // Initialiser les éléments DOM\n            this.initializeDOM();\n            \n            // Initialiser les composants\n            this.initializeRenderer();\n            this.initializeWebSocket();\n            this.initializeReadyPlayerMe();\n            \n            // Charger l'avatar par défaut\n            await this.loadDefaultAvatar();\n            \n            // Initialiser les contrôles UI\n            this.initializeControls();\n            \n            this.isInitialized = true;\n            this.updateStatus('Avatar prêt !', false);\n            \n            console.log('Contrôleur d\\'avatar initialisé avec succès');\n            \n        } catch (error) {\n            console.error('Erreur lors de l\\'initialisation:', error);\n            this.updateStatus('Erreur lors de l\\'initialisation', false);\n        }\n    }\n    \n    /**\n     * Attend que la configuration soit chargée\n     */\n    waitForConfigLoad() {\n        return new Promise((resolve) => {\n            if (this.config.get('enabled') !== null) {\n                resolve();\n            } else {\n                this.config.addEventListener('configLoaded', () => resolve());\n            }\n        });\n    }\n    \n    /**\n     * Initialise les éléments DOM\n     */\n    initializeDOM() {\n        this.container = document.getElementById('avatar-viewport');\n        this.statusElement = document.getElementById('status-text');\n        this.speechBubble = document.getElementById('speech-bubble');\n        this.controls = document.getElementById('avatar-controls');\n        \n        if (!this.container) {\n            throw new Error('Container avatar-viewport non trouvé');\n        }\n    }\n    \n    /**\n     * Initialise le moteur de rendu 3D\n     */\n    initializeRenderer() {\n        this.renderer = new AvatarRenderer(this.container, this.config);\n        console.log('Moteur de rendu initialisé');\n    }\n    \n    /**\n     * Initialise la connexion WebSocket\n     */\n    initializeWebSocket() {\n        this.websocket = new AvatarWebSocket(this.config);\n        \n        // Gestionnaires d'événements WebSocket\n        this.websocket.addEventListener('connected', () => {\n            console.log('WebSocket connecté');\n        });\n        \n        this.websocket.addEventListener('avatar_speech', (data) => {\n            this.handleSpeechMessage(data);\n        });\n        \n        this.websocket.addEventListener('avatar_emotion', (data) => {\n            this.handleEmotionMessage(data);\n        });\n        \n        this.websocket.addEventListener('avatar_gesture', (data) => {\n            this.handleGestureMessage(data);\n        });\n        \n        this.websocket.addEventListener('avatar_visibility', (data) => {\n            this.handleVisibilityMessage(data);\n        });\n        \n        this.websocket.addEventListener('avatar_appearance', (data) => {\n            this.handleAppearanceMessage(data);\n        });\n        \n        this.websocket.connect();\n        this.websocket.startKeepAlive();\n    }\n    \n    /**\n     * Initialise l'intégration Ready Player Me\n     */\n    initializeReadyPlayerMe() {\n        this.readyPlayerMe = new ReadyPlayerMeIntegration(this.config);\n        console.log('Ready Player Me initialisé, disponible:', this.readyPlayerMe.isAvailable());\n    }\n    \n    /**\n     * Charge l'avatar par défaut\n     */\n    async loadDefaultAvatar() {\n        this.updateStatus('Chargement de l\\'avatar...', true);\n        \n        try {\n            const gender = this.config.get('appearance.gender', 'female');\n            const age = this.config.get('appearance.age', 30);\n            const style = this.config.get('appearance.style', 'casual');\n            \n            let modelUrl;\n            \n            if (this.readyPlayerMe.isAvailable()) {\n                // Utiliser Ready Player Me\n                const defaultAvatarId = this.config.get('readyPlayerMe.defaultAvatarId');\n                modelUrl = await this.readyPlayerMe.getAvatarModelUrl(defaultAvatarId);\n                this.currentAvatarId = defaultAvatarId;\n            } else {\n                // Utiliser le modèle de fallback\n                modelUrl = this.config.getAvatarModelPath(gender, age, style);\n            }\n            \n            await this.renderer.loadAvatar(modelUrl);\n            \n            this.updateStatus('Avatar chargé !', false);\n            \n        } catch (error) {\n            console.error('Erreur lors du chargement de l\\'avatar:', error);\n            this.updateStatus('Erreur de chargement', false);\n        }\n    }\n    \n    /**\n     * Initialise les contrôles UI\n     */\n    initializeControls() {\n        // Bouton de basculement des contrôles\n        const toggleButton = document.getElementById('toggle-controls');\n        if (toggleButton) {\n            toggleButton.addEventListener('click', () => {\n                this.toggleControls();\n            });\n        }\n        \n        // Contrôles d'apparence\n        this.setupAppearanceControls();\n        \n        // Contrôles d'émotion\n        this.setupEmotionControls();\n        \n        // Contrôles de gestes\n        this.setupGestureControls();\n        \n        // Contrôle de test vocal\n        this.setupSpeechControls();\n    }\n    \n    /**\n     * Configure les contrôles d'apparence\n     */\n    setupAppearanceControls() {\n        const genderSelect = document.getElementById('gender-select');\n        const ageSlider = document.getElementById('age-slider');\n        const ageDisplay = document.getElementById('age-display');\n        const styleSelect = document.getElementById('style-select');\n        \n        if (genderSelect) {\n            genderSelect.value = this.config.get('appearance.gender', 'female');\n            genderSelect.addEventListener('change', () => {\n                this.changeAppearance();\n            });\n        }\n        \n        if (ageSlider && ageDisplay) {\n            ageSlider.value = this.config.get('appearance.age', 30);\n            ageDisplay.textContent = `${ageSlider.value} ans`;\n            \n            ageSlider.addEventListener('input', () => {\n                ageDisplay.textContent = `${ageSlider.value} ans`;\n                this.updateSliderBackground(ageSlider);\n            });\n            \n            ageSlider.addEventListener('change', () => {\n                this.changeAppearance();\n            });\n            \n            this.updateSliderBackground(ageSlider);\n        }\n        \n        if (styleSelect) {\n            styleSelect.value = this.config.get('appearance.style', 'casual');\n            styleSelect.addEventListener('change', () => {\n                this.changeAppearance();\n            });\n        }\n    }\n    \n    /**\n     * Configure les contrôles d'émotion\n     */\n    setupEmotionControls() {\n        const emotionSelect = document.getElementById('emotion-select');\n        \n        if (emotionSelect) {\n            emotionSelect.value = this.currentEmotion;\n            emotionSelect.addEventListener('change', () => {\n                this.setEmotion(emotionSelect.value);\n            });\n        }\n    }\n    \n    /**\n     * Configure les contrôles de gestes\n     */\n    setupGestureControls() {\n        const gestureButtons = document.querySelectorAll('.gesture-btn');\n        \n        gestureButtons.forEach(button => {\n            button.addEventListener('click', () => {\n                const gesture = button.dataset.gesture;\n                this.playGesture(gesture);\n            });\n        });\n    }\n    \n    /**\n     * Configure les contrôles de test vocal\n     */\n    setupSpeechControls() {\n        const speechTextarea = document.getElementById('speech-text');\n        const speakButton = document.getElementById('speak-btn');\n        \n        if (speakButton && speechTextarea) {\n            speakButton.addEventListener('click', () => {\n                const text = speechTextarea.value.trim();\n                if (text) {\n                    this.speak(text, this.currentEmotion);\n                }\n            });\n        }\n    }\n    \n    /**\n     * Configure les événements globaux\n     */\n    setupEventListeners() {\n        // Gestion des raccourcis clavier\n        document.addEventListener('keydown', (event) => {\n            if (event.ctrlKey || event.metaKey) {\n                switch (event.key) {\n                    case 'h':\n                        event.preventDefault();\n                        this.toggleControls();\n                        break;\n                    case 's':\n                        event.preventDefault();\n                        this.showSpeechInput();\n                        break;\n                }\n            }\n        });\n    }\n    \n    /**\n     * Gère les messages de parole reçus du backend\n     */\n    handleSpeechMessage(data) {\n        const { text, emotion, duration } = data;\n        console.log('Message de parole reçu:', text);\n        \n        // Afficher la bulle de dialogue\n        this.showSpeechBubble(text);\n        \n        // Changer l'émotion si spécifiée\n        if (emotion && emotion !== this.currentEmotion) {\n            this.setEmotion(emotion);\n        }\n        \n        // Jouer l'animation de parole\n        this.renderer.playAnimation('speaking', { loop: true, fadeIn: 0.3 });\n        \n        // Masquer la bulle après la durée spécifiée\n        setTimeout(() => {\n            this.hideSpeechBubble();\n            this.renderer.stopAnimation('speaking', 0.3);\n            this.renderer.playAnimation('idle', { loop: true, fadeIn: 0.3 });\n        }, duration || 3000);\n    }\n    \n    /**\n     * Gère les messages d'émotion reçus du backend\n     */\n    handleEmotionMessage(data) {\n        const { emotion, intensity } = data;\n        console.log('Changement d\\'émotion reçu:', emotion, intensity);\n        \n        this.setEmotion(emotion, intensity);\n        \n        // Mettre à jour l'interface\n        const emotionSelect = document.getElementById('emotion-select');\n        if (emotionSelect) {\n            emotionSelect.value = emotion;\n        }\n    }\n    \n    /**\n     * Gère les messages de geste reçus du backend\n     */\n    handleGestureMessage(data) {\n        const { gestureType } = data;\n        console.log('Geste reçu:', gestureType);\n        \n        this.playGesture(gestureType);\n    }\n    \n    /**\n     * Gère les messages de visibilité reçus du backend\n     */\n    handleVisibilityMessage(data) {\n        const { visible } = data;\n        console.log('Changement de visibilité:', visible);\n        \n        if (visible) {\n            this.showAvatar();\n        } else {\n            this.hideAvatar();\n        }\n    }\n    \n    /**\n     * Gère les messages de changement d'apparence reçus du backend\n     */\n    async handleAppearanceMessage(data) {\n        const { modelUrl, gender, age, style } = data;\n        console.log('Changement d\\'apparence:', data);\n        \n        this.updateStatus('Chargement du nouvel avatar...', true);\n        \n        try {\n            await this.renderer.loadAvatar(modelUrl);\n            \n            // Mettre à jour les contrôles UI\n            const genderSelect = document.getElementById('gender-select');\n            const ageSlider = document.getElementById('age-slider');\n            const ageDisplay = document.getElementById('age-display');\n            const styleSelect = document.getElementById('style-select');\n            \n            if (genderSelect) genderSelect.value = gender;\n            if (ageSlider) {\n                ageSlider.value = age;\n                this.updateSliderBackground(ageSlider);\n            }\n            if (ageDisplay) ageDisplay.textContent = `${age} ans`;\n            if (styleSelect) styleSelect.value = style;\n            \n            this.updateStatus('Avatar mis à jour !', false);\n            \n        } catch (error) {\n            console.error('Erreur lors du changement d\\'apparence:', error);\n            this.updateStatus('Erreur de chargement', false);\n        }\n    }\n    \n    /**\n     * Change l'apparence de l'avatar\n     */\n    async changeAppearance() {\n        const genderSelect = document.getElementById('gender-select');\n        const ageSlider = document.getElementById('age-slider');\n        const styleSelect = document.getElementById('style-select');\n        \n        if (!genderSelect || !ageSlider || !styleSelect) return;\n        \n        const gender = genderSelect.value;\n        const age = parseInt(ageSlider.value);\n        const style = styleSelect.value;\n        \n        console.log('Changement d\\'apparence:', { gender, age, style });\n        \n        this.updateStatus('Création de l\\'avatar...', true);\n        \n        try {\n            let modelUrl;\n            \n            if (this.readyPlayerMe.isAvailable()) {\n                // Créer un nouvel avatar avec Ready Player Me\n                const result = await this.readyPlayerMe.createAvatar({\n                    gender, age, style\n                });\n                modelUrl = await this.readyPlayerMe.getAvatarModelUrl(result.id);\n                this.currentAvatarId = result.id;\n            } else {\n                // Utiliser le modèle de fallback\n                modelUrl = this.config.getAvatarModelPath(gender, age, style);\n            }\n            \n            await this.renderer.loadAvatar(modelUrl);\n            \n            // Notifier le backend du changement\n            if (this.websocket.isConnectedAndReady()) {\n                this.websocket.sendMessage('appearance_changed', {\n                    gender, age, style, modelUrl\n                });\n            }\n            \n            this.updateStatus('Avatar mis à jour !', false);\n            \n        } catch (error) {\n            console.error('Erreur lors du changement d\\'apparence:', error);\n            this.updateStatus('Erreur de création', false);\n        }\n    }\n    \n    /**\n     * Définit l'émotion de l'avatar\n     */\n    setEmotion(emotion, intensity = 0.7) {\n        if (!this.isInitialized) return;\n        \n        this.currentEmotion = emotion;\n        this.renderer.setEmotion(emotion, intensity);\n        \n        console.log(`Émotion changée: ${emotion}`);\n    }\n    \n    /**\n     * Fait jouer un geste à l'avatar\n     */\n    playGesture(gestureType) {\n        if (!this.isInitialized) return;\n        \n        this.renderer.playGesture(gestureType);\n        \n        console.log(`Geste joué: ${gestureType}`);\n    }\n    \n    /**\n     * Fait parler l'avatar\n     */\n    speak(text, emotion = null) {\n        if (!this.isInitialized) return;\n        \n        const finalEmotion = emotion || this.currentEmotion;\n        \n        // Envoyer au backend via WebSocket\n        if (this.websocket.isConnectedAndReady()) {\n            this.websocket.sendMessage('speak_request', {\n                text, emotion: finalEmotion\n            });\n        } else {\n            // Mode hors ligne - simulation locale\n            this.handleSpeechMessage({\n                text, emotion: finalEmotion, duration: text.length * 100\n            });\n        }\n    }\n    \n    /**\n     * Affiche la bulle de dialogue\n     */\n    showSpeechBubble(text) {\n        if (!this.speechBubble) return;\n        \n        const textDisplay = document.getElementById('speech-text-display');\n        if (textDisplay) {\n            textDisplay.textContent = text;\n        }\n        \n        this.speechBubble.classList.remove('hidden');\n    }\n    \n    /**\n     * Masque la bulle de dialogue\n     */\n    hideSpeechBubble() {\n        if (this.speechBubble) {\n            this.speechBubble.classList.add('hidden');\n        }\n    }\n    \n    /**\n     * Affiche l'avatar\n     */\n    showAvatar() {\n        if (this.container) {\n            this.container.style.opacity = '1';\n            this.container.style.pointerEvents = 'auto';\n        }\n    }\n    \n    /**\n     * Masque l'avatar\n     */\n    hideAvatar() {\n        if (this.container) {\n            this.container.style.opacity = '0.3';\n            this.container.style.pointerEvents = 'none';\n        }\n    }\n    \n    /**\n     * Bascule l'affichage des contrôles\n     */\n    toggleControls() {\n        if (this.controls) {\n            this.controls.classList.toggle('hidden');\n        }\n    }\n    \n    /**\n     * Ouvre l'interface de création d'avatar Ready Player Me\n     */\n    async openAvatarCreator() {\n        if (!this.readyPlayerMe.isAvailable()) {\n            alert('Ready Player Me n\\'est pas disponible');\n            return;\n        }\n        \n        try {\n            const result = await this.readyPlayerMe.openAvatarCreator();\n            console.log('Avatar créé:', result);\n            \n            // Charger le nouvel avatar\n            await this.renderer.loadAvatar(result.modelUrl);\n            this.currentAvatarId = result.avatarId;\n            \n            this.updateStatus('Nouvel avatar chargé !', false);\n            \n        } catch (error) {\n            console.error('Erreur lors de la création d\\'avatar:', error);\n        }\n    }\n    \n    /**\n     * Affiche l'input de test vocal\n     */\n    showSpeechInput() {\n        const speechTextarea = document.getElementById('speech-text');\n        if (speechTextarea) {\n            speechTextarea.focus();\n            \n            // Afficher les contrôles si cachés\n            if (this.controls && this.controls.classList.contains('hidden')) {\n                this.toggleControls();\n            }\n        }\n    }\n    \n    /**\n     * Met à jour l'arrière-plan du slider d'âge\n     */\n    updateSliderBackground(slider) {\n        const value = (slider.value - slider.min) / (slider.max - slider.min) * 100;\n        slider.style.background = `linear-gradient(to right, var(--primary-color) 0%, var(--primary-color) ${value}%, #ddd ${value}%, #ddd 100%)`;\n    }\n    \n    /**\n     * Met à jour le statut affiché\n     */\n    updateStatus(message, showSpinner = false) {\n        if (this.statusElement) {\n            this.statusElement.textContent = message;\n        }\n        \n        const spinner = document.getElementById('loading-spinner');\n        if (spinner) {\n            spinner.style.display = showSpinner ? 'block' : 'none';\n        }\n    }\n    \n    /**\n     * Nettoie les ressources\n     */\n    dispose() {\n        if (this.renderer) {\n            this.renderer.dispose();\n        }\n        \n        if (this.websocket) {\n            this.websocket.stopKeepAlive();\n            this.websocket.disconnect();\n        }\n        \n        if (this.readyPlayerMe) {\n            this.readyPlayerMe.clearCache();\n        }\n        \n        console.log('Contrôleur d\\'avatar nettoyé');\n    }\n    \n    /**\n     * Obtient les informations de debug\n     */\n    getDebugInfo() {\n        return {\n            initialized: this.isInitialized,\n            currentEmotion: this.currentEmotion,\n            currentAvatarId: this.currentAvatarId,\n            websocketConnected: this.websocket?.isConnectedAndReady(),\n            readyPlayerMeAvailable: this.readyPlayerMe?.isAvailable(),\n            renderer: this.renderer?.getDebugInfo()\n        };\n    }\n}\n\n// Export global\nwindow.AvatarController = AvatarController;"
+/**
+ * Contrôleur principal de l'avatar 3D
+ * Coordonne le rendu, les animations, la communication WebSocket et Ready Player Me
+ */
+
+class AvatarController {
+    constructor() {
+        this.config = null;
+        this.renderer = null;
+        this.websocket = null;
+        this.readyPlayerMe = null;
+        
+        this.isInitialized = false;
+        this.currentEmotion = 'neutral';
+        this.currentAvatarId = null;
+        
+        // Éléments DOM
+        this.container = null;
+        this.statusElement = null;
+        this.speechBubble = null;
+        this.controls = null;
+        
+        this.setupEventListeners();
+    }
+    
+    /**
+     * Initialise le contrôleur d'avatar
+     */
+    async initialize() {
+        try {
+            console.log('Initialisation du contrôleur d\'avatar...');
+            
+            // Initialiser la configuration
+            if (window.AvatarConfig) {
+                this.config = new AvatarConfig();
+                await this.waitForConfigLoad();
+            } else {
+                console.warn('AvatarConfig non disponible, utilisation config par défaut');
+                this.config = {
+                    get: (key, defaultValue) => defaultValue
+                };
+            }
+            
+            // Initialiser les éléments DOM
+            this.initializeDOM();
+            
+            // Initialiser les composants
+            this.initializeRenderer();
+            this.initializeWebSocket();
+            this.initializeReadyPlayerMe();
+            
+            // Charger l'avatar par défaut
+            await this.loadDefaultAvatar();
+            
+            // Initialiser les contrôles UI
+            this.initializeControls();
+            
+            this.isInitialized = true;
+            this.updateStatus('Avatar prêt !', false);
+            
+            console.log('Contrôleur d\'avatar initialisé avec succès');
+            
+        } catch (error) {
+            console.error('Erreur lors de l\'initialisation:', error);
+            this.updateStatus('Erreur lors de l\'initialisation', false);
+        }
+    }
+    
+    /**
+     * Attend que la configuration soit chargée
+     */
+    waitForConfigLoad() {
+        return new Promise((resolve) => {
+            if (this.config.get('enabled') !== null) {
+                resolve();
+            } else if (this.config.addEventListener) {
+                this.config.addEventListener('configLoaded', () => resolve());
+            } else {
+                resolve(); // Fallback
+            }
+        });
+    }
+    
+    /**
+     * Initialise les éléments DOM
+     */
+    initializeDOM() {
+        this.container = document.getElementById('avatar-viewport');
+        this.statusElement = document.getElementById('avatar-status');
+        this.speechBubble = document.getElementById('message-bubble');
+        this.controls = document.getElementById('avatar-controls');
+        
+        if (!this.container) {
+            throw new Error('Container avatar-viewport non trouvé');
+        }
+    }
+    
+    /**
+     * Initialise le moteur de rendu 3D
+     */
+    initializeRenderer() {
+        if (window.AvatarRenderer) {
+            this.renderer = new AvatarRenderer(this.container, this.config);
+            console.log('Moteur de rendu initialisé');
+        } else {
+            console.warn('AvatarRenderer non disponible');
+        }
+    }
+    
+    /**
+     * Initialise la connexion WebSocket
+     */
+    initializeWebSocket() {
+        if (!window.AvatarWebSocket) {
+            console.warn('AvatarWebSocket non disponible');
+            return;
+        }
+        
+        try {
+            this.websocket = new AvatarWebSocket(this.config);
+            
+            // Gestionnaires d'événements WebSocket
+            this.websocket.addEventListener('connected', () => {
+                console.log('WebSocket connecté');
+            });
+            
+            this.websocket.addEventListener('avatar_speech', (data) => {
+                this.handleSpeechMessage(data);
+            });
+            
+            this.websocket.addEventListener('avatar_emotion', (data) => {
+                this.handleEmotionMessage(data);
+            });
+            
+            this.websocket.addEventListener('avatar_gesture', (data) => {
+                this.handleGestureMessage(data);
+            });
+            
+            this.websocket.addEventListener('avatar_visibility', (data) => {
+                this.handleVisibilityMessage(data);
+            });
+            
+            this.websocket.addEventListener('avatar_appearance', (data) => {
+                this.handleAppearanceMessage(data);
+            });
+            
+            this.websocket.connect();
+            this.websocket.startKeepAlive();
+        } catch (error) {
+            console.warn('Erreur WebSocket:', error.message);
+        }
+    }
+    
+    /**
+     * Initialise l'intégration Ready Player Me
+     */
+    initializeReadyPlayerMe() {
+        if (window.ReadyPlayerMeIntegration) {
+            this.readyPlayerMe = new ReadyPlayerMeIntegration(this.config);
+            console.log('Ready Player Me initialisé, disponible:', this.readyPlayerMe.isAvailable());
+        } else {
+            console.warn('ReadyPlayerMeIntegration non disponible');
+        }
+    }
+    
+    /**
+     * Charge l'avatar par défaut
+     */
+    async loadDefaultAvatar() {
+        this.updateStatus('Chargement de l\'avatar...', true);
+        
+        try {
+            const gender = this.config.get('appearance.gender', 'female');
+            const age = this.config.get('appearance.age', 30);
+            const style = this.config.get('appearance.style', 'casual');
+            
+            let modelUrl;
+            
+            if (this.readyPlayerMe && this.readyPlayerMe.isAvailable()) {
+                // Utiliser Ready Player Me
+                const defaultAvatarId = this.config.get('readyPlayerMe.defaultAvatarId');
+                if (defaultAvatarId) {
+                    modelUrl = await this.readyPlayerMe.getAvatarModelUrl(defaultAvatarId);
+                    this.currentAvatarId = defaultAvatarId;
+                }
+            }
+            
+            if (!modelUrl) {
+                // Utiliser le modèle de fallback
+                modelUrl = this.getAvatarModelPath(gender, age, style);
+            }
+            
+            if (this.renderer) {
+                await this.renderer.loadAvatar(modelUrl);
+            }
+            
+            this.updateStatus('Avatar chargé !', false);
+            
+        } catch (error) {
+            console.error('Erreur lors du chargement de l\'avatar:', error);
+            this.updateStatus('Erreur de chargement', false);
+        }
+    }
+    
+    /**
+     * Génère le chemin du modèle d'avatar
+     */
+    getAvatarModelPath(gender, age, style) {
+        const ageGroup = age < 30 ? 'young' : age < 45 ? 'adult' : age < 60 ? 'mature' : 'senior';
+        return `/models/avatars/${gender}_${ageGroup}_${style}.glb`;
+    }
+    
+    /**
+     * Initialise les contrôles UI
+     */
+    initializeControls() {
+        // Bouton de basculement des contrôles
+        const toggleButton = document.getElementById('toggle-controls');
+        if (toggleButton) {
+            toggleButton.addEventListener('click', () => {
+                this.toggleControls();
+            });
+        }
+        
+        // Contrôles d'apparence
+        this.setupAppearanceControls();
+        
+        // Contrôles d'émotion
+        this.setupEmotionControls();
+        
+        // Contrôles de gestes
+        this.setupGestureControls();
+        
+        // Contrôle de test vocal
+        this.setupSpeechControls();
+    }
+    
+    /**
+     * Configure les contrôles d'apparence
+     */
+    setupAppearanceControls() {
+        const genderSelect = document.getElementById('gender-select');
+        const ageSelect = document.getElementById('age-select');
+        const styleSelect = document.getElementById('style-select');
+        
+        if (genderSelect) {
+            genderSelect.value = this.config.get('appearance.gender', 'female');
+            genderSelect.addEventListener('change', () => {
+                this.changeAppearance();
+            });
+        }
+        
+        if (ageSelect) {
+            ageSelect.value = this.config.get('appearance.age', 30);
+            ageSelect.addEventListener('change', () => {
+                this.changeAppearance();
+            });
+        }
+        
+        if (styleSelect) {
+            styleSelect.value = this.config.get('appearance.style', 'casual');
+            styleSelect.addEventListener('change', () => {
+                this.changeAppearance();
+            });
+        }
+    }
+    
+    /**
+     * Configure les contrôles d'émotion
+     */
+    setupEmotionControls() {
+        const emotionSelect = document.getElementById('emotion-select');
+        
+        if (emotionSelect) {
+            emotionSelect.value = this.currentEmotion;
+            emotionSelect.addEventListener('change', () => {
+                this.setEmotion(emotionSelect.value);
+            });
+        }
+    }
+    
+    /**
+     * Configure les contrôles de gestes
+     */
+    setupGestureControls() {
+        const gestureButtons = document.querySelectorAll('.gesture-btn');
+        
+        gestureButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const gesture = button.dataset.gesture;
+                this.playGesture(gesture);
+            });
+        });
+    }
+    
+    /**
+     * Configure les contrôles de test vocal
+     */
+    setupSpeechControls() {
+        const speechTextarea = document.getElementById('speech-text');
+        const speakButton = document.getElementById('speak-btn');
+        
+        if (speakButton && speechTextarea) {
+            speakButton.addEventListener('click', () => {
+                const text = speechTextarea.value.trim();
+                if (text) {
+                    this.speak(text, this.currentEmotion);
+                }
+            });
+        }
+    }
+    
+    /**
+     * Configure les événements globaux
+     */
+    setupEventListeners() {
+        // Gestion des raccourcis clavier
+        document.addEventListener('keydown', (event) => {
+            if (event.ctrlKey || event.metaKey) {
+                switch (event.key) {
+                    case 'h':
+                        event.preventDefault();
+                        this.toggleControls();
+                        break;
+                    case 's':
+                        event.preventDefault();
+                        this.showSpeechInput();
+                        break;
+                }
+            }
+        });
+    }
+    
+    /**
+     * Gère les messages de parole reçus du backend
+     */
+    handleSpeechMessage(data) {
+        const { text, emotion, duration } = data;
+        console.log('Message de parole reçu:', text);
+        
+        // Afficher la bulle de dialogue
+        this.showSpeechBubble(text);
+        
+        // Changer l'émotion si spécifiée
+        if (emotion && emotion !== this.currentEmotion) {
+            this.setEmotion(emotion);
+        }
+        
+        // Jouer l'animation de parole
+        if (this.renderer && this.renderer.playAnimation) {
+            this.renderer.playAnimation('speaking', { loop: true, fadeIn: 0.3 });
+        }
+        
+        // Masquer la bulle après la durée spécifiée
+        setTimeout(() => {
+            this.hideSpeechBubble();
+            if (this.renderer) {
+                this.renderer.stopAnimation('speaking', 0.3);
+                this.renderer.playAnimation('idle', { loop: true, fadeIn: 0.3 });
+            }
+        }, duration || 3000);
+    }
+    
+    /**
+     * Gère les messages d'émotion reçus du backend
+     */
+    handleEmotionMessage(data) {
+        const { emotion, intensity } = data;
+        console.log('Changement d\'émotion reçu:', emotion, intensity);
+        
+        this.setEmotion(emotion, intensity);
+        
+        // Mettre à jour l'interface
+        const emotionSelect = document.getElementById('emotion-select');
+        if (emotionSelect) {
+            emotionSelect.value = emotion;
+        }
+    }
+    
+    /**
+     * Gère les messages de geste reçus du backend
+     */
+    handleGestureMessage(data) {
+        const { gestureType } = data;
+        console.log('Geste reçu:', gestureType);
+        
+        this.playGesture(gestureType);
+    }
+    
+    /**
+     * Gère les messages de visibilité reçus du backend
+     */
+    handleVisibilityMessage(data) {
+        const { visible } = data;
+        console.log('Changement de visibilité:', visible);
+        
+        if (visible) {
+            this.showAvatar();
+        } else {
+            this.hideAvatar();
+        }
+    }
+    
+    /**
+     * Gère les messages de changement d'apparence reçus du backend
+     */
+    async handleAppearanceMessage(data) {
+        const { modelUrl, gender, age, style } = data;
+        console.log('Changement d\'apparence:', data);
+        
+        this.updateStatus('Chargement du nouvel avatar...', true);
+        
+        try {
+            if (this.renderer) {
+                await this.renderer.loadAvatar(modelUrl);
+            }
+            
+            // Mettre à jour les contrôles UI
+            const genderSelect = document.getElementById('gender-select');
+            const ageSelect = document.getElementById('age-select');
+            const styleSelect = document.getElementById('style-select');
+            
+            if (genderSelect) genderSelect.value = gender;
+            if (ageSelect) ageSelect.value = age;
+            if (styleSelect) styleSelect.value = style;
+            
+            this.updateStatus('Avatar mis à jour !', false);
+            
+        } catch (error) {
+            console.error('Erreur lors du changement d\'apparence:', error);
+            this.updateStatus('Erreur de chargement', false);
+        }
+    }
+    
+    /**
+     * Change l'apparence de l'avatar
+     */
+    async changeAppearance() {
+        const genderSelect = document.getElementById('gender-select');
+        const ageSelect = document.getElementById('age-select');
+        const styleSelect = document.getElementById('style-select');
+        
+        if (!genderSelect || !ageSelect || !styleSelect) return;
+        
+        const gender = genderSelect.value;
+        const age = parseInt(ageSelect.value);
+        const style = styleSelect.value;
+        
+        console.log('Changement d\'apparence:', { gender, age, style });
+        
+        this.updateStatus('Création de l\'avatar...', true);
+        
+        try {
+            let modelUrl;
+            
+            if (this.readyPlayerMe && this.readyPlayerMe.isAvailable()) {
+                // Créer un nouvel avatar avec Ready Player Me
+                const result = await this.readyPlayerMe.createAvatar({
+                    gender, age, style
+                });
+                modelUrl = await this.readyPlayerMe.getAvatarModelUrl(result.id);
+                this.currentAvatarId = result.id;
+            } else {
+                // Utiliser le modèle de fallback
+                modelUrl = this.getAvatarModelPath(gender, age, style);
+            }
+            
+            if (this.renderer) {
+                await this.renderer.loadAvatar(modelUrl);
+            }
+            
+            // Notifier le backend du changement
+            if (this.websocket && this.websocket.isConnectedAndReady()) {
+                this.websocket.sendMessage('appearance_changed', {
+                    gender, age, style, modelUrl
+                });
+            }
+            
+            this.updateStatus('Avatar mis à jour !', false);
+            
+        } catch (error) {
+            console.error('Erreur lors du changement d\'apparence:', error);
+            this.updateStatus('Erreur de création', false);
+        }
+    }
+    
+    /**
+     * Définit l'émotion de l'avatar
+     */
+    setEmotion(emotion, intensity = 0.7) {
+        if (!this.isInitialized) return;
+        
+        this.currentEmotion = emotion;
+        
+        if (this.renderer && this.renderer.setEmotion) {
+            this.renderer.setEmotion(emotion, intensity);
+        }
+        
+        console.log(`Émotion changée: ${emotion}`);
+    }
+    
+    /**
+     * Fait jouer un geste à l'avatar
+     */
+    playGesture(gestureType) {
+        if (!this.isInitialized) return;
+        
+        if (this.renderer && this.renderer.playGesture) {
+            this.renderer.playGesture(gestureType);
+        }
+        
+        console.log(`Geste joué: ${gestureType}`);
+    }
+    
+    /**
+     * Fait parler l'avatar
+     */
+    speak(text, emotion = null) {
+        if (!this.isInitialized) return;
+        
+        const finalEmotion = emotion || this.currentEmotion;
+        
+        // Envoyer au backend via WebSocket
+        if (this.websocket && this.websocket.isConnectedAndReady()) {
+            this.websocket.sendMessage('speak_request', {
+                text, emotion: finalEmotion
+            });
+        } else {
+            // Mode hors ligne - simulation locale
+            this.handleSpeechMessage({
+                text, emotion: finalEmotion, duration: text.length * 100
+            });
+        }
+    }
+    
+    /**
+     * Affiche la bulle de dialogue
+     */
+    showSpeechBubble(text) {
+        if (!this.speechBubble) return;
+        
+        const textDisplay = document.getElementById('message-text');
+        if (textDisplay) {
+            textDisplay.textContent = text;
+        }
+        
+        this.speechBubble.classList.remove('hidden');
+    }
+    
+    /**
+     * Masque la bulle de dialogue
+     */
+    hideSpeechBubble() {
+        if (this.speechBubble) {
+            this.speechBubble.classList.add('hidden');
+        }
+    }
+    
+    /**
+     * Affiche l'avatar
+     */
+    showAvatar() {
+        if (this.container) {
+            this.container.style.opacity = '1';
+            this.container.style.pointerEvents = 'auto';
+        }
+    }
+    
+    /**
+     * Masque l'avatar
+     */
+    hideAvatar() {
+        if (this.container) {
+            this.container.style.opacity = '0.3';
+            this.container.style.pointerEvents = 'none';
+        }
+    }
+    
+    /**
+     * Bascule l'affichage des contrôles
+     */
+    toggleControls() {
+        if (this.controls) {
+            this.controls.classList.toggle('hidden');
+        }
+    }
+    
+    /**
+     * Ouvre l'interface de création d'avatar Ready Player Me
+     */
+    async openAvatarCreator() {
+        if (!this.readyPlayerMe || !this.readyPlayerMe.isAvailable()) {
+            alert('Ready Player Me n\'est pas disponible');
+            return;
+        }
+        
+        try {
+            const result = await this.readyPlayerMe.openAvatarCreator();
+            console.log('Avatar créé:', result);
+            
+            // Charger le nouvel avatar
+            if (this.renderer) {
+                await this.renderer.loadAvatar(result.modelUrl);
+                this.currentAvatarId = result.avatarId;
+            }
+            
+            this.updateStatus('Nouvel avatar chargé !', false);
+            
+        } catch (error) {
+            console.error('Erreur lors de la création d\'avatar:', error);
+        }
+    }
+    
+    /**
+     * Affiche l'input de test vocal
+     */
+    showSpeechInput() {
+        const speechTextarea = document.getElementById('speech-text');
+        if (speechTextarea) {
+            speechTextarea.focus();
+            
+            // Afficher les contrôles si cachés
+            if (this.controls && this.controls.classList.contains('hidden')) {
+                this.toggleControls();
+            }
+        }
+    }
+    
+    /**
+     * Met à jour le statut affiché
+     */
+    updateStatus(message, showSpinner = false) {
+        if (this.statusElement) {
+            this.statusElement.textContent = message;
+        }
+        
+        const spinner = document.getElementById('loading-spinner');
+        if (spinner) {
+            spinner.style.display = showSpinner ? 'block' : 'none';
+        }
+    }
+    
+    /**
+     * Nettoie les ressources
+     */
+    dispose() {
+        if (this.renderer && this.renderer.dispose) {
+            this.renderer.dispose();
+        }
+        
+        if (this.websocket) {
+            if (this.websocket.stopKeepAlive) this.websocket.stopKeepAlive();
+            if (this.websocket.disconnect) this.websocket.disconnect();
+        }
+        
+        if (this.readyPlayerMe && this.readyPlayerMe.clearCache) {
+            this.readyPlayerMe.clearCache();
+        }
+        
+        console.log('Contrôleur d\'avatar nettoyé');
+    }
+    
+    /**
+     * Obtient les informations de debug
+     */
+    getDebugInfo() {
+        return {
+            initialized: this.isInitialized,
+            currentEmotion: this.currentEmotion,
+            currentAvatarId: this.currentAvatarId,
+            websocketConnected: this.websocket?.isConnectedAndReady?.(),
+            readyPlayerMeAvailable: this.readyPlayerMe?.isAvailable?.(),
+            renderer: this.renderer?.getDebugInfo?.()
+        };
+    }
+}
+
+// Export global
+window.AvatarController = AvatarController;
