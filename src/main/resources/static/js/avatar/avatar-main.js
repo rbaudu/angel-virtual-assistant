@@ -5,6 +5,7 @@
 class AngelAvatarApp {
     constructor() {
         this.avatarRenderer = null;
+        this.avatarController = null;
         this.websocketManager = null;
         this.isInitialized = false;
         this.isMuted = false;
@@ -24,13 +25,11 @@ class AngelAvatarApp {
         console.log('🚀 Initialisation de Angel Avatar App...');
         
         try {
-            // Vérifier que les dépendances sont chargées
-            if (!window.AvatarSystem) {
-                throw new Error('AvatarSystem non disponible');
-            }
+            // Attendre que les dépendances soient chargées
+            await this.waitForDependencies();
             
-            // Initialiser le système d'avatar
-            this.avatarRenderer = window.AvatarSystem.init('avatar-viewport');
+            // Initialiser le renderer directement
+            await this.initializeRenderer();
             
             // Configurer les gestionnaires d'événements
             this.setupEventHandlers();
@@ -39,9 +38,7 @@ class AngelAvatarApp {
             await this.loadDefaultAvatar();
             
             // Initialiser WebSocket si disponible
-            if (window.AvatarWebSocketManager) {
-                this.websocketManager = new AvatarWebSocketManager(this.avatarRenderer);
-            }
+            this.initializeWebSocket();
             
             // Masquer le spinner de chargement
             this.hideLoadingSpinner();
@@ -60,8 +57,93 @@ class AngelAvatarApp {
         }
     }
     
+    /**
+     * Attend que les dépendances soient chargées
+     */
+    async waitForDependencies() {
+        return new Promise((resolve, reject) => {
+            let attempts = 0;
+            const maxAttempts = 100; // 10 secondes max
+            
+            const checkDependencies = () => {
+                attempts++;
+                
+                const hasThree = typeof THREE !== 'undefined';
+                const hasGLTFLoader = window.GLTFLoaderReady || (typeof THREE !== 'undefined' && THREE.GLTFLoader);
+                
+                console.log(`⏳ Vérification dépendances (${attempts}/${maxAttempts}): THREE=${hasThree}, GLTFLoader=${hasGLTFLoader}`);
+                
+                if (hasThree && hasGLTFLoader) {
+                    console.log('✅ Dépendances chargées');
+                    resolve();
+                } else if (attempts >= maxAttempts) {
+                    reject(new Error('Timeout: dépendances non chargées dans les temps'));
+                } else {
+                    setTimeout(checkDependencies, 100);
+                }
+            };
+            
+            checkDependencies();
+        });
+    }
+    
+    /**
+     * Initialise le renderer directement
+     */
+    async initializeRenderer() {
+        const container = document.getElementById('avatar-viewport');
+        if (!container) {
+            throw new Error('Container avatar-viewport non trouvé');
+        }
+        
+        if (window.AvatarRenderer) {
+            console.log('📱 Initialisation AvatarRenderer...');
+            this.avatarRenderer = new AvatarRenderer(container, this.config);
+        } else {
+            console.warn('⚠️ AvatarRenderer non disponible, mode dégradé');
+        }
+        
+        // Initialiser le contrôleur si disponible
+        if (window.AvatarController) {
+            console.log('🎮 Initialisation AvatarController...');
+            this.avatarController = new AvatarController();
+            await this.avatarController.initialize();
+        }
+    }
+    
+    /**
+     * Initialise WebSocket
+     */
+    initializeWebSocket() {
+        if (window.AvatarWebSocket) {
+            console.log('🔌 Initialisation WebSocket...');
+            try {
+                this.websocketManager = new AvatarWebSocket();
+                // Ne pas bloquer si WebSocket échoue
+            } catch (error) {
+                console.warn('⚠️ WebSocket non disponible:', error.message);
+            }
+        }
+    }
+    
+    /**
+     * Gère les erreurs d'initialisation
+     */
     handleInitError(error) {
+        console.error('❌ Erreur critique:', error);
+        
         // Afficher l'erreur dans l'interface
+        this.showError(`Erreur Avatar: ${error.message}`);
+        
+        // Essayer un mode de fallback
+        this.updateStatus('Mode dégradé');
+        this.hideLoadingSpinner();
+    }
+    
+    /**
+     * Affiche une erreur à l'utilisateur
+     */
+    showError(message) {
         const errorDiv = document.createElement('div');
         errorDiv.style.cssText = `
             position: fixed;
@@ -73,8 +155,9 @@ class AngelAvatarApp {
             border-radius: 5px;
             z-index: 9999;
             max-width: 300px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         `;
-        errorDiv.textContent = `Erreur Avatar: ${error.message}`;
+        errorDiv.textContent = message;
         document.body.appendChild(errorDiv);
         
         // Masquer après 10 secondes
@@ -85,30 +168,51 @@ class AngelAvatarApp {
         }, 10000);
     }
     
-    // ... (reste des méthodes existantes dans le HTML)
-    // Copier toutes les méthodes depuis le script dans avatar.html
-    
+    /**
+     * Charge l'avatar par défaut avec fallback
+     */
     async loadDefaultAvatar() {
-        const modelPath = this.getModelPath(this.config.gender, this.config.age, this.config.style);
+        console.log('📥 Chargement avatar par défaut...');
         
-        if (this.avatarRenderer && this.avatarRenderer.loadAvatar) {
-            const success = await this.avatarRenderer.loadAvatar(modelPath);
-            
-            if (!success) {
-                console.warn('⚠️ Chargement du modèle par défaut échoué, utilisation du fallback');
-                // Charger un modèle de fallback
-                await this.avatarRenderer.loadAvatar('/models/avatars/default.glb');
-            }
-        } else {
-            console.warn('⚠️ avatarRenderer.loadAvatar non disponible');
+        if (!this.avatarRenderer) {
+            console.warn('⚠️ Pas de renderer disponible');
+            return;
         }
+        
+        const modelPaths = [
+            this.getModelPath(this.config.gender, this.config.age, this.config.style),
+            '/models/avatars/default.glb',
+            '/models/avatars/fallback.glb'
+        ];
+        
+        for (const modelPath of modelPaths) {
+            try {
+                console.log(`🔄 Tentative de chargement: ${modelPath}`);
+                const success = await this.avatarRenderer.loadAvatar(modelPath);
+                
+                if (success) {
+                    console.log(`✅ Avatar chargé: ${modelPath}`);
+                    return;
+                }
+            } catch (error) {
+                console.warn(`⚠️ Échec chargement ${modelPath}:`, error.message);
+            }
+        }
+        
+        console.warn('⚠️ Tous les modèles ont échoué');
     }
     
+    /**
+     * Génère le chemin du modèle
+     */
     getModelPath(gender, age, style) {
         const ageGroup = this.getAgeGroup(age);
         return `/models/avatars/${gender}_${ageGroup}_${style}.glb`;
     }
     
+    /**
+     * Détermine le groupe d'âge
+     */
     getAgeGroup(age) {
         if (age < 30) return 'young';
         if (age < 45) return 'adult';
@@ -116,10 +220,13 @@ class AngelAvatarApp {
         return 'senior';
     }
     
+    /**
+     * Configure les gestionnaires d'événements
+     */
     setupEventHandlers() {
         console.log('⚙️ Configuration des gestionnaires d\'événements...');
         
-        // Vérifier que les éléments existent avant d'ajouter les listeners
+        // Éléments de l'interface
         const elements = {
             muteBtn: document.getElementById('mute-btn'),
             settingsBtn: document.getElementById('settings-btn'),
@@ -130,49 +237,24 @@ class AngelAvatarApp {
         };
         
         // Bouton muet
-        if (elements.muteBtn) {
-            elements.muteBtn.addEventListener('click', () => {
-                this.toggleMute();
-            });
-        }
+        this.safeAddEventListener(elements.muteBtn, 'click', () => this.toggleMute());
         
         // Bouton paramètres
-        if (elements.settingsBtn) {
-            elements.settingsBtn.addEventListener('click', () => {
-                this.showSettings();
-            });
-        }
+        this.safeAddEventListener(elements.settingsBtn, 'click', () => this.showSettings());
         
         // Fermeture des paramètres
-        if (elements.cancelSettings) {
-            elements.cancelSettings.addEventListener('click', () => {
-                this.hideSettings();
-            });
-        }
-        
-        if (elements.settingsOverlay) {
-            elements.settingsOverlay.addEventListener('click', () => {
-                this.hideSettings();
-            });
-        }
+        this.safeAddEventListener(elements.cancelSettings, 'click', () => this.hideSettings());
+        this.safeAddEventListener(elements.settingsOverlay, 'click', () => this.hideSettings());
         
         // Application des paramètres
-        if (elements.applySettings) {
-            elements.applySettings.addEventListener('click', () => {
-                this.applySettings();
-            });
-        }
+        this.safeAddEventListener(elements.applySettings, 'click', () => this.applySettings());
         
         // Mise à jour de la voix selon le genre
-        if (elements.genderSelect) {
-            elements.genderSelect.addEventListener('change', (e) => {
-                this.updateVoiceOptions(e.target.value);
-            });
-        }
+        this.safeAddEventListener(elements.genderSelect, 'change', (e) => this.updateVoiceOptions(e.target.value));
         
         // Gestion du redimensionnement
         window.addEventListener('resize', () => {
-            if (this.avatarRenderer && this.avatarRenderer.resize) {
+            if (this.avatarRenderer && typeof this.avatarRenderer.resize === 'function') {
                 this.avatarRenderer.resize();
             }
         });
@@ -187,47 +269,242 @@ class AngelAvatarApp {
         console.log('✅ Gestionnaires d\'événements configurés');
     }
     
-    // ... (copier toutes les autres méthodes depuis le HTML)
+    /**
+     * Ajoute un event listener de manière sécurisée
+     */
+    safeAddEventListener(element, event, handler) {
+        if (element && typeof element.addEventListener === 'function') {
+            element.addEventListener(event, handler);
+        } else {
+            console.warn(`⚠️ Élément non trouvé pour l'événement ${event}`);
+        }
+    }
     
+    /**
+     * Bascule le mode muet
+     */
+    toggleMute() {
+        this.isMuted = !this.isMuted;
+        const muteBtn = document.getElementById('mute-btn');
+        if (muteBtn) {
+            muteBtn.textContent = this.isMuted ? '🔇' : '🔊';
+        }
+        console.log(`🔊 Mode muet: ${this.isMuted}`);
+    }
+    
+    /**
+     * Affiche les paramètres
+     */
+    showSettings() {
+        const settings = document.getElementById('avatar-settings');
+        const overlay = document.getElementById('settings-overlay');
+        
+        if (settings) settings.classList.remove('hidden');
+        if (overlay) overlay.classList.remove('hidden');
+    }
+    
+    /**
+     * Masque les paramètres
+     */
+    hideSettings() {
+        const settings = document.getElementById('avatar-settings');
+        const overlay = document.getElementById('settings-overlay');
+        
+        if (settings) settings.classList.add('hidden');
+        if (overlay) overlay.classList.add('hidden');
+    }
+    
+    /**
+     * Applique les paramètres
+     */
+    async applySettings() {
+        console.log('⚙️ Application des paramètres...');
+        
+        const genderSelect = document.getElementById('gender-select');
+        const ageSelect = document.getElementById('age-select');
+        const styleSelect = document.getElementById('style-select');
+        const voiceSelect = document.getElementById('voice-select');
+        
+        if (genderSelect) this.config.gender = genderSelect.value;
+        if (ageSelect) this.config.age = parseInt(ageSelect.value);
+        if (styleSelect) this.config.style = styleSelect.value;
+        if (voiceSelect) this.config.voice = voiceSelect.value;
+        
+        console.log('📋 Nouvelle configuration:', this.config);
+        
+        // Recharger l'avatar avec les nouveaux paramètres
+        this.updateStatus('Mise à jour...');
+        await this.loadDefaultAvatar();
+        this.updateStatus('Prêt');
+        
+        // Fermer les paramètres
+        this.hideSettings();
+    }
+    
+    /**
+     * Met à jour les options de voix selon le genre
+     */
+    updateVoiceOptions(gender) {
+        const voiceSelect = document.getElementById('voice-select');
+        if (!voiceSelect) return;
+        
+        voiceSelect.innerHTML = '';
+        
+        const voices = gender === 'female' 
+            ? [
+                { value: 'female_french_warm', text: 'Femme - Chaleureuse' },
+                { value: 'female_french_professional', text: 'Femme - Professionnelle' }
+              ]
+            : [
+                { value: 'male_french_warm', text: 'Homme - Chaleureux' },
+                { value: 'male_french_professional', text: 'Homme - Professionnel' }
+              ];
+        
+        voices.forEach(voice => {
+            const option = document.createElement('option');
+            option.value = voice.value;
+            option.textContent = voice.text;
+            voiceSelect.appendChild(option);
+        });
+        
+        this.config.voice = voices[0].value;
+    }
+    
+    /**
+     * Fait parler l'avatar
+     */
+    speak(text, emotion = 'neutral') {
+        console.log(`🗣️ Parole: "${text}" (${emotion})`);
+        
+        if (this.avatarController && typeof this.avatarController.speak === 'function') {
+            this.avatarController.speak(text, emotion);
+        } else if (this.avatarRenderer) {
+            // Mode basique
+            this.showMessage(text);
+            this.setSpeakingIndicator(true);
+            
+            setTimeout(() => {
+                this.setSpeakingIndicator(false);
+                this.hideMessage();
+            }, text.length * 100);
+        }
+    }
+    
+    /**
+     * Définit l'émotion
+     */
+    setEmotion(emotion, intensity = 0.7) {
+        console.log(`😊 Émotion: ${emotion} (${intensity})`);
+        
+        if (this.avatarController && typeof this.avatarController.setEmotion === 'function') {
+            this.avatarController.setEmotion(emotion, intensity);
+        }
+    }
+    
+    /**
+     * Affiche un message
+     */
+    showMessage(text) {
+        const messageText = document.getElementById('message-text');
+        const messageBubble = document.getElementById('message-bubble');
+        
+        if (messageText) messageText.textContent = text;
+        if (messageBubble) messageBubble.classList.remove('hidden');
+    }
+    
+    /**
+     * Masque le message
+     */
+    hideMessage() {
+        const messageBubble = document.getElementById('message-bubble');
+        if (messageBubble) messageBubble.classList.add('hidden');
+    }
+    
+    /**
+     * Contrôle l'indicateur de parole
+     */
+    setSpeakingIndicator(speaking) {
+        const indicator = document.getElementById('speaking-indicator');
+        if (indicator) {
+            indicator.style.display = speaking ? 'block' : 'none';
+        }
+    }
+    
+    /**
+     * Met à jour le statut
+     */
     updateStatus(status) {
         const statusElement = document.getElementById('avatar-status');
         if (statusElement) {
             statusElement.textContent = status;
         }
+        console.log(`📊 Statut: ${status}`);
     }
     
+    /**
+     * Affiche le spinner de chargement
+     */
     showLoadingSpinner() {
         const spinner = document.getElementById('loading-spinner');
-        if (spinner) {
-            spinner.style.display = 'block';
-        }
+        if (spinner) spinner.style.display = 'block';
     }
     
+    /**
+     * Masque le spinner de chargement
+     */
     hideLoadingSpinner() {
         const spinner = document.getElementById('loading-spinner');
-        if (spinner) {
-            spinner.style.display = 'none';
-        }
+        if (spinner) spinner.style.display = 'none';
     }
     
+    /**
+     * Affiche l'avatar
+     */
     showAvatar() {
         const container = document.getElementById('avatar-container');
-        if (container) {
-            container.classList.add('visible');
-        }
+        if (container) container.classList.add('visible');
         
-        if (this.avatarRenderer && this.avatarRenderer.setVisible) {
+        if (this.avatarRenderer && typeof this.avatarRenderer.setVisible === 'function') {
             this.avatarRenderer.setVisible(true);
         }
     }
     
-    // ... (continuer avec toutes les méthodes)
+    /**
+     * Masque l'avatar
+     */
+    hideAvatar() {
+        const container = document.getElementById('avatar-container');
+        if (container) container.classList.remove('visible');
+        
+        if (this.avatarRenderer && typeof this.avatarRenderer.setVisible === 'function') {
+            this.avatarRenderer.setVisible(false);
+        }
+    }
+    
+    /**
+     * Nettoie les ressources
+     */
+    dispose() {
+        if (this.avatarController && typeof this.avatarController.dispose === 'function') {
+            this.avatarController.dispose();
+        }
+        
+        if (this.avatarRenderer && typeof this.avatarRenderer.dispose === 'function') {
+            this.avatarRenderer.dispose();
+        }
+        
+        if (this.websocketManager && typeof this.websocketManager.disconnect === 'function') {
+            this.websocketManager.disconnect();
+        }
+        
+        console.log('🧹 AngelAvatarApp nettoyé');
+    }
 }
 
 // Export pour utilisation globale
 window.AngelAvatarApp = AngelAvatarApp;
 
-// Initialisation automatique
+// Initialisation automatique avec gestion d'erreurs améliorée
 document.addEventListener('DOMContentLoaded', () => {
     console.log('📄 DOM prêt, initialisation AngelAvatarApp...');
     
@@ -235,7 +512,9 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         try {
             window.angelApp = new AngelAvatarApp();
-            window.angelApp.init();
+            window.angelApp.init().catch(error => {
+                console.error('❌ Erreur critique lors de l\'initialisation:', error);
+            });
         } catch (error) {
             console.error('❌ Erreur création AngelAvatarApp:', error);
         }
