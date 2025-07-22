@@ -44,6 +44,12 @@ class AngelAvatarApp {
                 gender: 'female',
                 age: 30,
                 style: 'casual'
+            },
+            
+            // Configuration Ready Player Me
+            readyPlayerMe: {
+                enabled: true,
+                defaultAvatarId: '687f66fafe8107131699bf7b'
             }
         };
         
@@ -209,7 +215,7 @@ class AngelAvatarApp {
     }
     
     /**
-     * Charge l'avatar par défaut avec fallback
+     * Charge l'avatar par défaut avec Ready Player Me prioritaire
      */
     async loadDefaultAvatar() {
         console.log('📥 Chargement avatar par défaut...');
@@ -219,19 +225,37 @@ class AngelAvatarApp {
             return;
         }
         
-        const modelPaths = [
+        // Priorité 1: Ready Player Me (direct, sans test)
+        const readyPlayerMeId = this.config.get('readyPlayerMe.defaultAvatarId', '687f66fafe8107131699bf7b');
+        if (readyPlayerMeId) {
+            const readyPlayerMeUrl = `https://models.readyplayer.me/${readyPlayerMeId}.glb`;
+            console.log('🎯 Tentative Ready Player Me directe:', readyPlayerMeUrl);
+            
+            try {
+                const success = await this.avatarRenderer.loadAvatar(readyPlayerMeUrl);
+                if (success) {
+                    console.log('✅ Avatar Ready Player Me chargé:', readyPlayerMeUrl);
+                    return;
+                }
+            } catch (error) {
+                console.warn('⚠️ Ready Player Me échoué:', error.message);
+            }
+        }
+        
+        // Priorité 2: Modèles locaux
+        const localModelPaths = [
             this.getModelPath(this.config.gender, this.config.age, this.config.style),
-            '/models/avatars/default.glb',
-            '/models/avatars/fallback.glb'
+            '/models/avatars/female_mature_elegant.glb',
+            '/models/avatars/female_adult_casual.glb'
         ];
         
-        for (const modelPath of modelPaths) {
+        for (const modelPath of localModelPaths) {
             try {
-                console.log(`🔄 Tentative de chargement: ${modelPath}`);
+                console.log(`🔄 Tentative modèle local: ${modelPath}`);
                 const success = await this.avatarRenderer.loadAvatar(modelPath);
                 
                 if (success) {
-                    console.log(`✅ Avatar chargé: ${modelPath}`);
+                    console.log(`✅ Avatar local chargé: ${modelPath}`);
                     return;
                 }
             } catch (error) {
