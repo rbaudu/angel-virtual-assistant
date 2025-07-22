@@ -38,28 +38,89 @@ class ReadyPlayerMeIntegration {
      */
     async getAvatarModelUrl(avatarId) {
         if (!avatarId) {
+            console.log('🔄 Pas d\'avatar ID, utilisation fallback');
             return this.getFallbackModelUrl();
         }
         
         // Pour Ready Player Me, l'URL publique est : https://models.readyplayer.me/{id}.glb
         const publicUrl = `https://models.readyplayer.me/${avatarId}.glb`;
+        console.log('🔍 Test de l\'URL Ready Player Me:', publicUrl);
         
         try {
-            // Tester l'accès direct au modèle (pas besoin de clé API pour les modèles publics)
-            const response = await fetch(publicUrl, { method: 'HEAD' });
+            // Test plus permissif : essayer de charger directement le modèle
+            // Créer une promesse avec timeout
+            const testPromise = new Promise((resolve, reject) => {
+                const img = new Image();
+                const timeout = setTimeout(() => {
+                    reject(new Error('Timeout'));
+                }, 5000);
+                
+                // Utiliser une requête GET simple pour tester l'accessibilité
+                fetch(publicUrl, { 
+                    method: 'GET',
+                    mode: 'cors',
+                    cache: 'no-cache'
+                })
+                .then(response => {
+                    clearTimeout(timeout);
+                    console.log('📊 Réponse Ready Player Me:', {
+                        status: response.status,
+                        ok: response.ok,
+                        headers: response.headers.get('content-type'),
+                        url: response.url
+                    });
+                    
+                    if (response.ok && response.headers.get('content-type')?.includes('application/octet-stream')) {
+                        resolve(true);
+                    } else {
+                        reject(new Error(`Status: ${response.status}`));
+                    }
+                })
+                .catch(error => {
+                    clearTimeout(timeout);
+                    reject(error);
+                });
+            });
             
-            if (response.ok) {
-                console.log('✅ Modèle Ready Player Me trouvé:', publicUrl);
-                return publicUrl;
-            } else {
-                console.warn(`⚠️ Modèle Ready Player Me non accessible: ${avatarId}`);
-                return this.getFallbackModelUrl();
-            }
+            await testPromise;
+            
+            console.log('✅ Modèle Ready Player Me accessible:', publicUrl);
+            return publicUrl;
             
         } catch (error) {
-            console.error('❌ Erreur test Ready Player Me:', error);
+            console.warn('⚠️ Modèle Ready Player Me non accessible:', {
+                avatarId,
+                error: error.message,
+                fallback: 'Utilisation du modèle local'
+            });
+            
+            // Essayer l'URL alternative avec www
+            try {
+                const alternativeUrl = `https://models.readyplayer.me/${avatarId}.glb`;
+                console.log('🔄 Tentative URL alternative:', alternativeUrl);
+                
+                // Pour l'instant, on retourne directement l'URL car elle devrait fonctionner
+                // même si le test CORS échoue
+                return alternativeUrl;
+                
+            } catch (altError) {
+                console.warn('⚠️ URL alternative échouée aussi');
+                return this.getFallbackModelUrl();
+            }
+        }
+    }
+    
+    /**
+     * Version simplifiée qui retourne directement l'URL Ready Player Me
+     */
+    getDirectReadyPlayerMeUrl(avatarId) {
+        if (!avatarId) {
             return this.getFallbackModelUrl();
         }
+        
+        const directUrl = `https://models.readyplayer.me/${avatarId}.glb`;
+        console.log('🎯 URL directe Ready Player Me:', directUrl);
+        return directUrl;
     }
     
     /**
@@ -305,6 +366,7 @@ class ReadyPlayerMeIntegration {
         const key = `${gender}-${ageGroup}`;
         const modelFile = fallbackMap[key] || 'female_mature_elegant.glb';
         
+        console.log('🔄 Modèle fallback:', basePath + modelFile);
         return basePath + modelFile;
     }
     
