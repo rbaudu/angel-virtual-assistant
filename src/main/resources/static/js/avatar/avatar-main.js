@@ -10,12 +10,41 @@ class AngelAvatarApp {
         this.isInitialized = false;
         this.isMuted = false;
         
-        // Configuration initiale
+        // Configuration initiale compatible avec AvatarRenderer
         this.config = {
             gender: 'female',
             age: 30,
             style: 'casual',
-            voice: 'female_french_warm'
+            voice: 'female_french_warm',
+            
+            // Méthode get() pour compatibilité avec AvatarRenderer
+            get: function(key, defaultValue) {
+                const keys = key.split('.');
+                let value = this;
+                
+                for (let k of keys) {
+                    if (value && typeof value === 'object' && k in value) {
+                        value = value[k];
+                    } else {
+                        return defaultValue;
+                    }
+                }
+                
+                return value !== undefined ? value : defaultValue;
+            },
+            
+            // Configuration par défaut pour le rendu
+            rendering: {
+                antialiasing: true,
+                shadows: true,
+                quality: 'high'
+            },
+            
+            appearance: {
+                gender: 'female',
+                age: 30,
+                style: 'casual'
+            }
         };
         
         console.log('🎭 Création de AngelAvatarApp...');
@@ -98,7 +127,13 @@ class AngelAvatarApp {
         
         if (window.AvatarRenderer) {
             console.log('📱 Initialisation AvatarRenderer...');
-            this.avatarRenderer = new AvatarRenderer(container, this.config);
+            try {
+                this.avatarRenderer = new AvatarRenderer(container, this.config);
+                console.log('✅ AvatarRenderer initialisé avec succès');
+            } catch (error) {
+                console.error('❌ Erreur AvatarRenderer:', error);
+                throw error;
+            }
         } else {
             console.warn('⚠️ AvatarRenderer non disponible, mode dégradé');
         }
@@ -106,8 +141,13 @@ class AngelAvatarApp {
         // Initialiser le contrôleur si disponible
         if (window.AvatarController) {
             console.log('🎮 Initialisation AvatarController...');
-            this.avatarController = new AvatarController();
-            await this.avatarController.initialize();
+            try {
+                this.avatarController = new AvatarController();
+                await this.avatarController.initialize();
+                console.log('✅ AvatarController initialisé');
+            } catch (error) {
+                console.warn('⚠️ AvatarController échoué:', error.message);
+            }
         }
     }
     
@@ -118,8 +158,8 @@ class AngelAvatarApp {
         if (window.AvatarWebSocket) {
             console.log('🔌 Initialisation WebSocket...');
             try {
-                this.websocketManager = new AvatarWebSocket();
-                // Ne pas bloquer si WebSocket échoue
+                this.websocketManager = new AvatarWebSocket(this.config);
+                console.log('✅ WebSocket initialisé');
             } catch (error) {
                 console.warn('⚠️ WebSocket non disponible:', error.message);
             }
@@ -254,8 +294,8 @@ class AngelAvatarApp {
         
         // Gestion du redimensionnement
         window.addEventListener('resize', () => {
-            if (this.avatarRenderer && typeof this.avatarRenderer.resize === 'function') {
-                this.avatarRenderer.resize();
+            if (this.avatarRenderer && typeof this.avatarRenderer.onWindowResize === 'function') {
+                this.avatarRenderer.onWindowResize();
             }
         });
         
@@ -398,6 +438,8 @@ class AngelAvatarApp {
         
         if (this.avatarController && typeof this.avatarController.setEmotion === 'function') {
             this.avatarController.setEmotion(emotion, intensity);
+        } else if (this.avatarRenderer && typeof this.avatarRenderer.setEmotion === 'function') {
+            this.avatarRenderer.setEmotion(emotion, intensity);
         }
     }
     
