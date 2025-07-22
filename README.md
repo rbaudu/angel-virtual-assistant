@@ -6,49 +6,93 @@ Un assistant virtuel intelligent qui propose des activités en fonction de la d�
 
 Angel Virtual Assistant est un système conçu pour accompagner les personnes dans leur quotidien en proposant des activités adaptées à leur contexte actuel. Le système utilise la détection d'activités fournie par Angel-server-capture pour comprendre ce que fait la personne à un moment donné, puis propose des activités appropriées via un avatar visuel.
 
-## ⚡ Nouveauté : Mode Test Intégré
+## ⚡ Nouveautés v1.1.0
+
+### 🌐 Interface Web Intégrée (Nouveau !)
+
+**🎯 Accès web complet avec Spring Boot !**
+
+L'application est maintenant dotée d'une interface web complète avec :
+
+- 🖥️ **Dashboard de test interactif** : Interface complète de contrôle en mode test
+- 🎭 **Interface Avatar Web** : Avatar accessible via navigateur web
+- ⚙️ **Configuration centralisée** : Gestion unifiée des paramètres via fichiers `config/`
+- 🔧 **Serveur Spring Boot intégré** : Plus besoin de serveur externe pour l'interface
+- 📱 **Interface responsive** : Compatible desktop et mobile
+
+### 🎮 Mode Test Intégré
 
 **🎯 Développement et tests simplifiés !**
 
 Le mode test permet de développer et tester l'assistant virtuel **sans dépendre du serveur dl4j-server-capture**. Il simule des activités en continu avec :
 
-- 🎮 **Interface de contrôle web** : Dashboard complet accessible sur `http://localhost:8080/test-dashboard`
+- 🎮 **Interface de contrôle web** : Dashboard complet accessible via navigateur
 - 🎭 **Scénarios personnalisables** : Routines matinales, journées chargées, activités aléatoires
 - ⚡ **Contrôle en temps réel** : Démarrage/arrêt, changement d'activité manuel
 - 📊 **Statistiques détaillées** : Monitoring et logs en direct
 - 🔄 **Basculement automatique** : Passe en mode test si le serveur principal est indisponible
 
-### Démarrage rapide en mode test
+### Démarrage rapide
 
 ```bash
 # Cloner le projet
 git clone https://github.com/rbaudu/angel-virtual-assistant.git
 cd angel-virtual-assistant
 
+# Démarrer en mode normal (avec interface web)
+./angel-launcher.sh start
+
 # Démarrer en mode test (sans dl4j-server-capture)
 ./angel-launcher.sh start -p test
 
-# Ou directement avec Java
-java -Dangel.profile=test -jar target/angel-virtual-assistant.jar
-
-# Accéder au dashboard de test
-open http://localhost:8080/test-dashboard
+# Accéder aux interfaces web
+# Mode normal : http://localhost:8080/angel/test-dashboard
+# Mode normal : http://localhost:8080/angel/
+# Mode test :   http://localhost:8081/test-dashboard
+# Mode test :   http://localhost:8081/angel
 ```
 
-📚 **Documentation complète** : [docs/TEST_MODE.md](docs/TEST_MODE.md)
+📚 **Documentation complète** : [docs/WEB_INTERFACE.md](docs/WEB_INTERFACE.md) | [docs/TEST_MODE.md](docs/TEST_MODE.md)
 
 ---
 
 ## Fonctionnalités principales
 
+### Core
 - **Détection d'activités** : Intégration avec Angel-server-capture pour détecter 27 types d'activités différentes
 - **Propositions contextuelles** : Suggestions d'activités adaptées à l'activité actuelle de l'utilisateur
 - **Avatar visuel** : Interface utilisateur basée sur un avatar avec visage humain
-- **Activation vocale** : Système d'activation via le mot-clé "Angel"
+- **Activation vocale** : Système d'activation via le mot-clé \"Angel\"
 - **Configuration flexible** : Paramétrage des fréquences et types de propositions
 - **Historique intelligent** : Mémorisation des propositions pour éviter les répétitions
 - **Préférences utilisateur** : Système de préférences personnalisables
-- **🆕 Mode test complet** : Simulation d'activités pour développement et tests
+
+### 🆕 Interface Web
+- **🌐 Dashboard de test interactif** : Interface complète pour le mode test
+- **🎭 Avatar Web** : Interface avatar accessible via navigateur
+- **📊 Monitoring en temps réel** : Statistiques et logs en direct
+- **⚙️ Configuration web** : Interface de configuration (à venir)
+- **📱 Interface responsive** : Compatible tous écrans
+
+### 🆕 Mode Test
+- **🎮 Simulation intégrée** : Test sans dépendances externes
+- **🎯 Scénarios personnalisables** : Routines et activités programmées
+- **⚡ Contrôle temps réel** : Start/stop, changement d'activité manuel
+- **📈 Analytics** : Statistiques d'usage et patterns
+
+## URLs et Accès Web
+
+### Mode Normal (Production)
+- **Dashboard test** : http://localhost:8080/angel/test-dashboard
+- **Avatar** : http://localhost:8080/angel/
+- **Console H2** : http://localhost:8080/angel/h2-console
+- **API** : http://localhost:8080/angel/api/
+
+### Mode Test
+- **Dashboard test** : http://localhost:8081/test-dashboard
+- **Avatar** : http://localhost:8081/angel et http://localhost:8081/
+- **Console H2** : http://localhost:8081/h2-console
+- **API Test** : http://localhost:8081/api/test/
 
 ## Types d'activités détectées
 
@@ -99,20 +143,22 @@ Le système peut proposer différents types d'activités :
 
 ## Architecture technique
 
-L'architecture du système est modulaire et principalement implémentée en Java :
+L'architecture du système est modulaire et implémentée avec **Spring Boot** :
 
 ### Composants principaux
 
-1. **Module Core** (`com.angel.core`)
-   - `AngelApplication.java` : Point d'entrée et orchestration générale
+1. **🆕 Module Core Spring Boot** (`com.angel.core`)
+   - `SpringBootAngelApplication.java` : Point d'entrée Spring Boot
+   - `AngelApplication.java` : Orchestration générale (composant Spring)
 
 2. **Module Modèles** (`com.angel.model`)
    - `Activity.java` : Énumération des activités détectables
    - `ProposalHistory.java` : Historique des propositions
    - `UserProfile.java` : Profil et préférences utilisateur
 
-3. **Module Configuration** (`com.angel.config`)
+3. **🆕 Module Configuration Spring** (`com.angel.config`)
    - `ConfigManager.java` : Gestion de la configuration centralisée
+   - `WebConfig.java` : Configuration Spring MVC et ressources web
    - `TestModeConfig.java` : Configuration du mode test
 
 4. **Module API** (`com.angel.api`)
@@ -137,16 +183,23 @@ L'architecture du système est modulaire et principalement implémentée en Java
    - `dao/ProposalDAO.java` : Accès aux données des propositions
    - `dao/UserPreferenceDAO.java` : Accès aux préférences utilisateur
 
-8. **Module Interface Utilisateur** (`com.angel.ui`)
-   - `AvatarController.java` : Contrôle de l'avatar visuel
+8. **🆕 Module Interface Web** (`com.angel.ui`)
+   - `AvatarController.java` : Contrôle de l'avatar (service)
+   - `AvatarWebController.java` : Contrôleur web pour l'avatar
    - `TestDashboardController.java` : Contrôleur web du dashboard de test
 
 9. **Module Reconnaissance Vocale** (`com.angel.voice`)
-   - `WakeWordDetector.java` : Détection du mot-clé "Angel"
+   - `WakeWordDetector.java` : Détection du mot-clé \"Angel\"
 
 10. **Module Utilitaires** (`com.angel.util`)
     - `LogUtil.java` : Gestion des logs
     - `DateTimeUtil.java` : Utilitaires de date/heure
+
+11. **🆕 Module Avatar** (`com.angel.avatar`)
+    - `AvatarManager.java` : Gestionnaire principal de l'avatar
+    - `TextToSpeechService.java` : Service de synthèse vocale
+    - `WebSocketService.java` : Communication WebSocket pour l'avatar
+    - `EmotionAnalyzer.java` : Analyseur d'émotions
 
 ## Structure des fichiers
 
@@ -154,68 +207,50 @@ L'architecture du système est modulaire et principalement implémentée en Java
 angel-virtual-assistant/
 ├── README.md
 ├── pom.xml
-├── angel-launcher.sh               # Script de lancement Linux/macOS
-├── angel-launcher.bat              # Script de lancement Windows
+├── angel-launcher.sh               # Script de lancement Linux/macOS (Spring Boot)
+├── angel-launcher.bat              # Script de lancement Windows (Spring Boot)
 ├── install-script.sh               # Script d'installation système
-├── config/
-│   ├── angel-config.json           # Configuration principale
+├── config/                         # 🆕 Configuration centralisée
+│   ├── application.properties      # Configuration principale (mode normal)
+│   ├── application-test.properties # Configuration mode test
 │   └── test/
-│       ├── test-mode-config.json   # 🆕 Configuration mode test
-│       └── activity-scenarios.json # 🆕 Scénarios d'activités
+│       ├── test-mode-config.json   # Configuration détaillée mode test
+│       └── activity-scenarios.json # Scénarios d'activités
 ├── docs/
-│   └── TEST_MODE.md               # 🆕 Documentation du mode test
+│   ├── WEB_INTERFACE.md           # 🆕 Documentation interface web
+│   ├── SPRING_BOOT_MIGRATION.md   # 🆕 Guide migration Spring Boot
+│   └── TEST_MODE.md               # Documentation du mode test
 ├── src/
 │   ├── main/
 │   │   ├── java/
 │   │   │   └── com/
 │   │   │       └── angel/
 │   │   │           ├── core/
-│   │   │           │   └── AngelApplication.java
-│   │   │           ├── model/
-│   │   │           │   ├── Activity.java
-│   │   │           │   ├── ProposalHistory.java
-│   │   │           │   └── UserProfile.java
+│   │   │           │   ├── SpringBootAngelApplication.java  # 🆕 Point d'entrée Spring Boot
+│   │   │           │   └── AngelApplication.java             # 🆕 Composant Spring
 │   │   │           ├── config/
 │   │   │           │   ├── ConfigManager.java
-│   │   │           │   ├── TestModeConfig.java          # 🆕
-│   │   │           │   └── TestModeConfiguration.java   # 🆕
-│   │   │           ├── api/
-│   │   │           │   ├── AngelServerClient.java
-│   │   │           │   ├── TestActivityClient.java      # 🆕
-│   │   │           │   ├── TestModeController.java      # 🆕
-│   │   │           │   └── dto/
-│   │   │           │       └── ActivityDTO.java
-│   │   │           ├── test/                            # 🆕 Module complet
-│   │   │           │   ├── ActivitySimulator.java
-│   │   │           │   ├── ScenarioManager.java
-│   │   │           │   ├── TestDataGenerator.java
-│   │   │           │   └── TestModeService.java
-│   │   │           ├── intelligence/
-│   │   │           │   ├── ProposalEngine.java
-│   │   │           │   └── proposals/
-│   │   │           │       ├── Proposal.java
-│   │   │           │       └── WeatherProposal.java
-│   │   │           ├── persistence/
-│   │   │           │   ├── DatabaseManager.java
-│   │   │           │   └── dao/
-│   │   │           │       ├── ProposalDAO.java
-│   │   │           │       └── UserPreferenceDAO.java
+│   │   │           │   ├── WebConfig.java                   # 🆕 Configuration web
+│   │   │           │   └── TestModeConfig.java
 │   │   │           ├── ui/
-│   │   │           │   ├── AvatarController.java
-│   │   │           │   └── TestDashboardController.java # 🆕
-│   │   │           ├── voice/
-│   │   │           │   └── WakeWordDetector.java
-│   │   │           └── util/
-│   │   │               ├── LogUtil.java
-│   │   │               └── DateTimeUtil.java
+│   │   │           │   ├── AvatarController.java            # Service avatar
+│   │   │           │   ├── AvatarWebController.java         # 🆕 Contrôleur web avatar
+│   │   │           │   └── TestDashboardController.java     # 🆕 Contrôleur web test
+│   │   │           └── [autres modules...]
 │   │   └── resources/
-│   │       ├── static/                                  # 🆕 Ressources web
+│   │       ├── static/                                      # 🆕 Ressources web statiques
 │   │       │   ├── css/
-│   │       │   │   └── test-mode.css
-│   │       │   └── js/
-│   │       │       └── test-control.js
-│   │       └── templates/                               # 🆕 Templates web
-│   │           └── test-dashboard.html
+│   │       │   │   ├── avatar.css
+│   │       │   │   └── test-dashboard.css
+│   │       │   ├── js/
+│   │       │   │   ├── avatar.js
+│   │       │   │   └── test-control.js
+│   │       │   └── images/
+│   │       │       └── [avatars et icônes]
+│   │       └── templates/                                   # 🆕 Templates HTML
+│   │           ├── avatar.html
+│   │           ├── test-dashboard.html
+│   │           └── test-help.html
 │   └── test/
 │       └── java/
 └── logs/
@@ -227,6 +262,7 @@ angel-virtual-assistant/
 - Maven 3.6 ou supérieur
 - **En mode production** : Angel-server-capture en fonctionnement
 - **En mode test** : Aucune dépendance externe 🎉
+- **🆕 Pour l'interface web** : Navigateur moderne (Chrome, Firefox, Safari, Edge)
 
 ## Installation
 
@@ -261,25 +297,30 @@ git clone https://github.com/rbaudu/angel-virtual-assistant.git
 cd angel-virtual-assistant
 ```
 
-2. Compiler le projet :
-```bash
-mvn clean compile
+2. **🆕 Mettre à jour la configuration** :
+   - Les fichiers `config/application.properties` et `config/application-test.properties` sont automatiquement mis à jour avec les propriétés Spring Boot nécessaires
+
+3. **🆕 Ajouter la dépendance Thymeleaf** dans `pom.xml` :
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-thymeleaf</artifactId>
+    <version>${spring-boot.version}</version>
+</dependency>
 ```
 
-3. Configurer le système :
-   - Éditer `config/angel-config.json` pour adapter les paramètres
-   - **Mode production** : Configurer l'URL du serveur Angel-server-capture
-   - **Mode test** : Activer le mode test dans la configuration
-
-4. Exécuter l'application :
-```bash
-mvn exec:java -Dexec.mainClass="com.angel.core.AngelApplication"
-```
-
-Ou créer un JAR exécutable :
+4. Compiler le projet :
 ```bash
 mvn clean package
-java -jar target/angel-virtual-assistant-1.0.0-SNAPSHOT-jar-with-dependencies.jar
+```
+
+5. Exécuter l'application :
+```bash
+# Avec Spring Boot
+java -jar target/angel-virtual-assistant-1.0.0-SNAPSHOT.jar
+
+# Ou via le script
+./angel-launcher.sh start
 ```
 
 ## Utilisation
@@ -294,8 +335,11 @@ java -jar target/angel-virtual-assistant-1.0.0-SNAPSHOT-jar-with-dependencies.ja
 # Démarrer en mode développement avec 1GB de RAM
 ./angel-launcher.sh start -p dev -m 1g
 
-# Voir le statut
+# Voir le statut avec URLs d'accès
 ./angel-launcher.sh status
+
+# Tester l'interface web
+./angel-launcher.sh test-web
 
 # Voir les logs en temps réel
 ./angel-launcher.sh logs
@@ -318,6 +362,12 @@ angel-launcher.bat status
 # Arrêter l'application
 angel-launcher.bat stop
 ```
+
+#### 🆕 Accès Web (Mode Normal)
+Une fois démarré, accédez aux interfaces :
+- **Dashboard test** : http://localhost:8080/angel/test-dashboard
+- **Avatar** : http://localhost:8080/angel/
+- **Console H2** : http://localhost:8080/angel/h2-console
 
 ### 🆕 Mode Test (sans dl4j-server-capture)
 
@@ -348,60 +398,76 @@ angel-launcher.bat status
 angel-launcher.bat stop
 ```
 
-#### Interface web de test
+#### 🆕 Interface web de test
 
 1. **Accéder au dashboard** :
    ```
-   http://localhost:8080/test-dashboard
+   http://localhost:8081/test-dashboard
    ```
 
-2. **Fonctionnalités disponibles** :
+2. **Accéder à l'avatar** :
+   ```
+   http://localhost:8081/angel
+   http://localhost:8081/          # Route alternative
+   ```
+
+3. **Fonctionnalités disponibles** :
    - 🎮 Contrôles de simulation (start/stop)
    - 🎯 Définition manuelle d'activités
    - 🎭 Chargement de scénarios prédéfinis
    - 📊 Statistiques en temps réel
    - 📝 Journal d'activité en direct
+   - 🎭 Avatar interactif
 
 #### API de test
 
 ```bash
 # Vérifier l'état du mode test
-curl http://localhost:8080/api/test/health
+curl http://localhost:8081/api/test/health
 
 # Obtenir l'activité courante
-curl http://localhost:8080/api/test/activity/current
+curl http://localhost:8081/api/test/activity/current
 
 # Définir une activité manuellement
-curl -X POST http://localhost:8080/api/test/activity/set \
-     -H "Content-Type: application/json" \
-     -d '{"activity": "READING", "confidence": 0.85}'
+curl -X POST http://localhost:8081/api/test/activity/set \
+     -H \"Content-Type: application/json\" \
+     -d '{\"activity\": \"READING\", \"confidence\": 0.85}'
 
 # Démarrer la simulation
-curl -X POST http://localhost:8080/api/test/simulation/start
+curl -X POST http://localhost:8081/api/test/simulation/start
 
 # Charger un scénario
-curl -X POST http://localhost:8080/api/test/scenario/load/morning_routine
+curl -X POST http://localhost:8081/api/test/scenario/load/morning_routine
 ```
 
 ### Configuration du mode test
 
-#### Activation dans angel-config.json
+#### Configuration centralisée
 
-```json
-{
-  "system": {
-    "mode": "test",
-    "testMode": {
-      "enabled": true,
-      "configFile": "config/test/test-mode-config.json"
-    }
-  },
-  "api": {
-    "testMode": {
-      "fallbackToTest": true
-    }
-  }
-}
+Les configurations sont dans le dossier `config/` :
+
+**`config/application.properties`** (mode normal) :
+```properties
+# Configuration serveur
+server.port=8080
+server.servlet.context-path=/angel
+
+# Configuration Spring Boot (ajout automatique)
+spring.application.name=Angel Virtual Assistant
+spring.mvc.view.prefix=/templates/
+spring.mvc.view.suffix=.html
+angel.test.dashboard.enabled=true
+```
+
+**`config/application-test.properties`** (mode test) :
+```properties
+# Configuration serveur test
+server.port=8081
+server.servlet.context-path=/
+
+# Mode test activé
+angel.test.enabled=true
+angel.test.auto-start=true
 ```
 
 #### Scénarios personnalisés
@@ -410,22 +476,22 @@ curl -X POST http://localhost:8080/api/test/scenario/load/morning_routine
 
 ```json
 {
-  "scenarios": {
-    "my_scenario": {
-      "name": "Mon Scénario Personnalisé",
-      "description": "Description de mon scénario",
-      "activities": [
+  \"scenarios\": {
+    \"my_scenario\": {
+      \"name\": \"Mon Scénario Personnalisé\",
+      \"description\": \"Description de mon scénario\",
+      \"activities\": [
         {
-          "activity": "WAKING_UP",
-          "duration": 120000,
-          "confidence": 0.9,
-          "description": "Se réveiller"
+          \"activity\": \"WAKING_UP\",
+          \"duration\": 120000,
+          \"confidence\": 0.9,
+          \"description\": \"Se réveiller\"
         },
         {
-          "activity": "EATING",
-          "duration": 300000,
-          "confidence": 0.85,
-          "description": "Petit déjeuner"
+          \"activity\": \"EATING\",
+          \"duration\": 300000,
+          \"confidence\": 0.85,
+          \"description\": \"Petit déjeuner\"
         }
       ]
     }
@@ -435,12 +501,28 @@ curl -X POST http://localhost:8080/api/test/scenario/load/morning_routine
 
 ### Profils d'exécution
 
-Le système supporte plusieurs profils :
+Le système supporte plusieurs profils avec configuration centralisée :
 
-- **prod** : Mode production (avec dl4j-server-capture)
-- **test** : Mode test (simulation intégrée) 🆕
+- **prod** : Mode production (avec dl4j-server-capture) - port 8080, context /angel
+- **test** : Mode test (simulation intégrée) - port 8081, context /
 - **dev** : Mode développement (logs détaillés, hot reload)
 - **default** : Mode par défaut
+
+### 🆕 Interface Web - Guide d'utilisation
+
+#### Dashboard de Test
+1. **Navigation** : Menu latéral avec sections organisées
+2. **Contrôles de simulation** : Start/stop, vitesse, randomisation
+3. **Sélection d'activité** : Liste déroulante avec toutes les activités
+4. **Scénarios** : Chargement de routines prédéfinies
+5. **Statistiques** : Graphiques en temps réel
+6. **Logs** : Affichage en direct des événements
+
+#### Interface Avatar
+1. **Avatar 3D** : Rendu en temps réel avec animations
+2. **Contrôles** : Play/pause, volume, mode d'affichage
+3. **Chat** : Interface de conversation (à venir)
+4. **Paramètres** : Configuration de l'apparence
 
 ### Gestion du service système
 
@@ -468,8 +550,8 @@ sudo ./install-script.sh service status
 ### Options avancées
 
 ```bash
-# Démarrer avec un fichier de configuration personnalisé
-./angel-launcher.sh start -c /path/to/custom-config.json
+# Démarrer avec un profil spécifique
+./angel-launcher.sh start -p test
 
 # Démarrer avec plus de mémoire
 ./angel-launcher.sh start -m 2g
@@ -484,38 +566,52 @@ sudo ./install-script.sh service status
 ./angel-launcher.sh build
 ./angel-launcher.sh test
 ./angel-launcher.sh clean
+
+# 🆕 Test de l'interface web
+./angel-launcher.sh test-web
 ```
 
 ## Configuration
 
-Le fichier `config/angel-config.json` permet de configurer :
+### 🆕 Configuration centralisée
 
-- **Système** : Langue, mot-clé d'activation, mode de fonctionnement
-- **API** : URL du serveur Angel-capture, timeouts, mode test
-- **Avatar** : Paramètres d'affichage et d'animation
-- **Propositions** : Fréquences, types autorisés par activité
-- **Base de données** : Configuration H2
-- **Logging** : Niveaux et fichiers de log
-- **🆕 Mode test** : Configuration de la simulation
+La configuration utilise maintenant des fichiers dans le dossier `config/` :
+
+- **`config/application.properties`** : Configuration principale (mode normal)
+- **`config/application-test.properties`** : Configuration mode test
+- **`config/test/test-mode-config.json`** : Configuration détaillée du mode test
+- **`config/test/activity-scenarios.json`** : Scénarios d'activités
+
+### Configuration Spring Boot
+
+Les propriétés Spring Boot sont automatiquement ajoutées aux fichiers de configuration :
+
+```properties
+# Configuration Spring Boot (ajoutée automatiquement)
+spring.application.name=Angel Virtual Assistant
+spring.main.allow-bean-definition-overriding=true
+spring.mvc.view.prefix=/templates/
+spring.mvc.view.suffix=.html
+spring.thymeleaf.cache=false
+angel.test.dashboard.enabled=true
+```
 
 ### Exemple de configuration des propositions :
 
-```json
-{
-  "proposals": {
-    "daily": {
-      "weather": {
-        "maxPerDay": 3,
-        "minTimeBetween": 14400000,
-        "preferredHours": [7, 8, 13, 14, 19]
-      }
-    },
-    "activityMapping": {
-      "EATING": ["news", "weather", "reminders.medications", "conversations"],
-      "WAITING": ["news", "weather", "stories", "conversations", "games", "media"]
-    }
-  }
-}
+```properties
+# Propositions quotidiennes - News
+proposals.daily.news.max-per-day=5
+proposals.daily.news.min-time-between=7200000
+proposals.daily.news.sources=local,national,international
+
+# Propositions quotidiennes - Météo
+proposals.daily.weather.max-per-day=3
+proposals.daily.weather.min-time-between=14400000
+proposals.daily.weather.include-today=true
+
+# Mapping des activités
+proposals.activity-mapping.eating=news,weather,reminders.medications,conversations
+proposals.activity-mapping.waiting=news,weather,stories,conversations,games,media
 ```
 
 ## Maintenance
@@ -542,10 +638,10 @@ git pull
 
 # Retour en mode production
 ./angel-launcher.sh stop
-./angel-launcher.sh start -p prod
+./angel-launcher.sh start
 
-# Basculement automatique si dl4j-server-capture indisponible
-# (si fallbackToTest: true dans la configuration)
+# Vérifier les URLs actuelles
+./angel-launcher.sh status
 ```
 
 ### Désinstallation
@@ -567,8 +663,11 @@ sudo ./install-script.sh uninstall
 # Voir les logs système (si installé en service)
 sudo journalctl -u angel-virtual-assistant -f
 
-# Vérifier l'état des processus
+# Vérifier l'état des processus et URLs
 ./angel-launcher.sh status
+
+# 🆕 Tester l'interface web
+./angel-launcher.sh test-web
 
 # 🆕 Logs spécifiques au mode test
 tail -f logs/angel.log | grep -i test
@@ -582,7 +681,13 @@ Le système est conçu pour être facilement extensible :
 
 1. Créer une classe implémentant `Proposal`
 2. L'ajouter dans `createAvailableProposals()` de `AngelApplication`
-3. Configurer les paramètres dans `angel-config.json`
+3. Configurer les paramètres dans `config/application.properties`
+
+### 🆕 Ajouter une nouvelle page web :
+
+1. Créer un contrôleur Spring dans `com.angel.ui`
+2. Ajouter le template HTML dans `src/main/resources/templates/`
+3. Ajouter les ressources CSS/JS dans `src/main/resources/static/`
 
 ### 🆕 Ajouter un nouveau scénario de test :
 
@@ -593,21 +698,15 @@ Le système est conçu pour être facilement extensible :
 ### Exemple d'implémentation :
 
 ```java
-public class NewsProposal implements Proposal {
-    @Override
-    public String getId() { return "news"; }
+@Controller
+@RequestMapping(\"/my-page\")
+public class MyPageController {
     
-    @Override
-    public boolean isAppropriate(Activity currentActivity, ...) {
-        // Logique de pertinence
+    @GetMapping
+    public String showMyPage(Model model) {
+        model.addAttribute(\"title\", \"Ma Page\");
+        return \"my-page\";
     }
-    
-    @Override
-    public int getPriority(Activity currentActivity, ...) {
-        // Calcul de priorité
-    }
-    
-    // Autres méthodes...
 }
 ```
 
@@ -620,13 +719,17 @@ Le système utilise une base de données H2 intégrée avec les tables :
 - `activities` : Cache local des activités détectées
 - **🆕** `test_sessions` : Sessions de test et statistiques
 
+**🆕 Console H2 accessible via web** :
+- Mode normal : http://localhost:8080/angel/h2-console
+- Mode test : http://localhost:8081/h2-console
+
 ## Logging
 
 Les logs sont configurés avec plusieurs niveaux :
 - **INFO** : Informations générales de fonctionnement
 - **WARNING** : Avertissements et erreurs récupérables
 - **SEVERE** : Erreurs critiques
-- **🆕 DEBUG** : Logs détaillés du mode test
+- **🆕 DEBUG** : Logs détaillés du mode test et Spring Boot
 
 Fichiers de log dans `./logs/angel.log` avec rotation automatique.
 
@@ -648,6 +751,21 @@ mvn -version
 ./angel-launcher.sh build
 ```
 
+#### 🆕 Interface web inaccessible
+```bash
+# Vérifier que l'application est démarrée
+./angel-launcher.sh status
+
+# Tester l'accès web
+./angel-launcher.sh test-web
+
+# Vérifier la configuration
+grep -E \"server.port|server.servlet.context-path\" config/application*.properties
+
+# Vérifier les logs Spring Boot
+tail -f logs/angel.log | grep -i \"tomcat\\|spring\"
+```
+
 #### Impossible de se connecter à Angel-server-capture
 ```bash
 # Vérifier que le serveur est démarré
@@ -657,49 +775,49 @@ curl http://localhost:8080/api/health
 ./angel-launcher.sh stop
 ./angel-launcher.sh start -p test
 
-# Ou modifier temporairement la configuration
-# dans config/angel-config.json
+# Vérifier la nouvelle URL : http://localhost:8081/test-dashboard
 ```
 
 #### 🆕 Problèmes avec le mode test
 ```bash
 # Vérifier l'état du mode test
-curl http://localhost:8080/api/test/health
+curl http://localhost:8081/api/test/health
 
 # Vérifier la configuration
-cat config/test/test-mode-config.json | jq
+cat config/application-test.properties | grep test
 
 # Redémarrer la simulation
-curl -X POST http://localhost:8080/api/test/simulation/stop
-curl -X POST http://localhost:8080/api/test/simulation/start
+curl -X POST http://localhost:8081/api/test/simulation/stop
+curl -X POST http://localhost:8081/api/test/simulation/start
 
 # Vérifier les scénarios
-curl http://localhost:8080/api/test/scenarios
+curl http://localhost:8081/api/test/scenarios
 ```
 
 #### Dashboard de test inaccessible
 ```bash
 # Vérifier que le mode test est activé
-grep -r "testMode" config/
+grep \"angel.test.enabled=true\" config/application-test.properties
 
-# Tester l'accès direct
-curl http://localhost:8080/test-dashboard
+# Tester l'accès direct selon le mode
+# Mode normal : curl http://localhost:8080/angel/test-dashboard
+# Mode test :   curl http://localhost:8081/test-dashboard
 
 # Vérifier les logs du serveur web
-tail -f logs/angel.log | grep -i dashboard
+tail -f logs/angel.log | grep -i \"dashboard\\|thymeleaf\"
 ```
 
-#### Problème de permissions
+#### 🆕 Problèmes Spring Boot
 ```bash
-# Réinstaller avec les bonnes permissions
-sudo ./install-script.sh uninstall
-sudo ./install-script.sh install
-```
+# Vérifier les propriétés Spring Boot dans la configuration
+grep -E \"spring\\.|server\\.\" config/application*.properties
 
-#### Problème de mémoire
-```bash
-# Augmenter la mémoire allouée
-./angel-launcher.sh start -m 2g
+# Vérifier les dépendances
+mvn dependency:tree | grep spring
+
+# Forcer la recompilation
+./angel-launcher.sh clean
+./angel-launcher.sh build
 ```
 
 ### Support et logs
@@ -708,6 +826,7 @@ En cas de problème, consultez les logs :
 - Application : `./logs/angel.log`
 - Service système : `sudo journalctl -u angel-virtual-assistant`
 - Sortie daemon : `./logs/angel.out` et `./logs/angel.err`
+- **🆕 Logs Spring Boot** : Inclus dans `./logs/angel.log` avec préfixe `[SPRING]`
 
 ## Tests
 
@@ -720,7 +839,10 @@ Exécuter les tests unitaires :
 mvn test
 
 # 🆕 Tests spécifiques au mode test
-mvn test -Dtest="*Test*"
+mvn test -Dtest=\"*Test*\"
+
+# 🆕 Tests d'intégration Spring Boot
+mvn test -Dtest=\"*ControllerTest\"
 ```
 
 ## Contribution
@@ -731,24 +853,41 @@ mvn test -Dtest="*Test*"
 4. Pousser vers la branche (`git push origin feature/AmazingFeature`)
 5. Créer une Pull Request
 
+### 🆕 Guidelines pour l'interface web
+- Utiliser les conventions Spring Boot
+- Templates HTML dans `src/main/resources/templates/`
+- CSS/JS dans `src/main/resources/static/`
+- Suivre le pattern MVC avec contrôleurs dans `com.angel.ui`
+
 ## Licence
 
 À définir.
 
 ## Roadmap
 
-- [x] **🆕 Mode test intégré** avec simulation d'activités
-- [x] **🆕 Interface web** de contrôle des tests
+### Version 1.1.0 (Actuelle)
+- [x] **🆕 Interface web intégrée** avec Spring Boot
+- [x] **🆕 Dashboard de test interactif**
+- [x] **🆕 Avatar accessible via web**
+- [x] **🆕 Configuration centralisée** dans dossier `config/`
+- [x] **🆕 Serveur Spring Boot intégré**
+- [x] **🆕 Mode test** avec simulation d'activités
 - [x] **🆕 Scénarios personnalisables** d'activités
 - [x] **🆕 API REST** pour contrôle programmatique
+
+### Version 1.2.0 (Prochaine)
+- [ ] **🔧 Interface de configuration web** : Édition des paramètres via web
+- [ ] **💬 Chat interactif** : Interface de conversation avec l'avatar
+- [ ] **📱 Interface mobile** : Optimisation pour smartphones/tablettes
+- [ ] **🔐 Authentification** : Système de connexion et profils utilisateurs
+- [ ] **🎨 Thèmes personnalisables** : Interface adaptable
+
+### Version 1.3.0 et plus
 - [ ] Implémentation des propositions manquantes (News, Stories, Games, etc.)
-- [ ] Interface web pour l'avatar
-- [ ] Intégration reconnaissance vocale avancée
-- [ ] API REST pour contrôle externe
+- [ ] Intégration reconnaissance vocale avancée via web
 - [ ] Support multi-utilisateurs
 - [ ] Intégration services externes (météo, actualités)
 - [ ] Application mobile companion
-- [ ] Interface de configuration graphique
 - [ ] Système de plugins
 - [ ] Support Docker/containerisation
 - [ ] Monitoring et métriques avancées
@@ -760,7 +899,7 @@ mvn test -Dtest="*Test*"
 
 ## 🚀 Démarrage Rapide
 
-**Pour commencer immédiatement avec le mode test :**
+**Pour commencer immédiatement avec l'interface web :**
 
 ```bash
 # 1. Cloner et compiler
@@ -768,13 +907,19 @@ git clone https://github.com/rbaudu/angel-virtual-assistant.git
 cd angel-virtual-assistant
 mvn clean package
 
-# 2. Démarrer en mode test
+# 2. Démarrer en mode test (recommandé pour débuter)
 ./angel-launcher.sh start -p test
 
-# 3. Ouvrir le dashboard
-open http://localhost:8080/test-dashboard
+# 3. Ouvrir les interfaces web
+open http://localhost:8081/test-dashboard  # Dashboard de test
+open http://localhost:8081/angel          # Interface avatar
 
-# 4. Commencer à tester ! 🎉
+# 4. Ou démarrer en mode normal (nécessite angel-server-capture)
+./angel-launcher.sh start
+open http://localhost:8080/angel/test-dashboard
+open http://localhost:8080/angel/
+
+# 5. Commencer à explorer ! 🎉
 ```
 
-**Le mode test vous permet de développer et tester Angel Virtual Assistant sans aucune dépendance externe !**
+**L'interface web vous permet maintenant d'interagir complètement avec Angel Virtual Assistant via votre navigateur !**
