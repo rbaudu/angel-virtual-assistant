@@ -4,11 +4,17 @@
  */
 class AngelAvatarApp {
     constructor() {
-        this.avatarRenderer = null;
+		if (window.angelAppInstance) {
+		    console.warn('⚠️ AngelAvatarApp instance déjà existante');
+		    return window.angelAppInstance;
+		}
+		this.avatarRenderer = null;
         this.avatarController = null;
         this.websocketManager = null;
         this.isInitialized = false;
         this.isMuted = false;
+		// Marquer cette instance comme active
+		window.angelAppInstance = this;
         
         // Configuration initiale compatible avec AvatarRenderer
         this.config = {
@@ -125,38 +131,45 @@ class AngelAvatarApp {
     /**
      * Initialise le renderer directement
      */
-    async initializeRenderer() {
-        const container = document.getElementById('avatar-viewport');
-        if (!container) {
-            throw new Error('Container avatar-viewport non trouvé');
-        }
-        
-        if (window.AvatarRenderer) {
-            console.log('📱 Initialisation AvatarRenderer...');
-            try {
-                this.avatarRenderer = new AvatarRenderer(container, this.config);
-                console.log('✅ AvatarRenderer initialisé avec succès');
-            } catch (error) {
-                console.error('❌ Erreur AvatarRenderer:', error);
-                throw error;
-            }
-        } else {
-            console.warn('⚠️ AvatarRenderer non disponible, mode dégradé');
-        }
-        
-        // Initialiser le contrôleur si disponible
-        if (window.AvatarController) {
-            console.log('🎮 Initialisation AvatarController...');
-            try {
-                this.avatarController = new AvatarController();
-                await this.avatarController.initialize();
-                console.log('✅ AvatarController initialisé');
-            } catch (error) {
-                console.warn('⚠️ AvatarController échoué:', error.message);
-            }
-        }
-    }
-    
+	async initializeRenderer() {
+	    const container = document.getElementById('avatar-viewport');
+	    if (!container) {
+	        throw new Error('Container avatar-viewport non trouvé');
+	    }
+	    
+	    // CORRECTION: Nettoyer le container pour éviter la duplication
+	    const existingCanvases = container.querySelectorAll('canvas');
+	    existingCanvases.forEach(canvas => {
+	        console.log('🧹 Suppression canvas existant');
+	        canvas.remove();
+	    });
+	    
+	    if (window.AvatarRenderer) {
+	        console.log('📱 Initialisation AvatarRenderer...');
+	        try {
+	            this.avatarRenderer = new AvatarRenderer(container, this.config);
+	            console.log('✅ AvatarRenderer initialisé avec succès');
+	        } catch (error) {
+	            console.error('❌ Erreur AvatarRenderer:', error);
+	            throw error;
+	        }
+	    } else {
+	        console.warn('⚠️ AvatarRenderer non disponible, mode dégradé');
+	    }
+	    
+	    // Initialiser le contrôleur si disponible
+	    if (window.AvatarController) {
+	        console.log('🎮 Initialisation AvatarController...');
+	        try {
+	            this.avatarController = new AvatarController();
+	            await this.avatarController.initialize();
+	            console.log('✅ AvatarController initialisé');
+	        } catch (error) {
+	            console.warn('⚠️ AvatarController échoué:', error.message);
+	        }
+	    }
+	}    
+	
     /**
      * Initialise WebSocket
      */
@@ -359,25 +372,52 @@ class AngelAvatarApp {
     /**
      * Affiche les paramètres
      */
-    showSettings() {
-        const settings = document.getElementById('avatar-settings');
-        const overlay = document.getElementById('settings-overlay');
-        
-        if (settings) settings.classList.remove('hidden');
-        if (overlay) overlay.classList.remove('hidden');
-    }
-    
+	showSettings() {
+	    console.log('⚙️ Ouverture panneau paramètres');
+	    
+	    const settings = document.getElementById('avatar-settings');
+	    const overlay = document.getElementById('settings-overlay');
+	    
+	    if (settings) {
+	        settings.classList.remove('hidden');
+	        settings.style.display = 'block';
+	    }
+	    if (overlay) {
+	        overlay.classList.remove('hidden');
+	        overlay.style.display = 'flex';
+	    }
+	    
+	    // Empêcher le scroll du body
+	    document.body.style.overflow = 'hidden';
+	}
+	    
     /**
      * Masque les paramètres
      */
-    hideSettings() {
-        const settings = document.getElementById('avatar-settings');
-        const overlay = document.getElementById('settings-overlay');
-        
-        if (settings) settings.classList.add('hidden');
-        if (overlay) overlay.classList.add('hidden');
-    }
-    
+	hideSettings() {
+	    console.log('❌ Fermeture panneau paramètres');
+	    
+	    const settings = document.getElementById('avatar-settings');
+	    const overlay = document.getElementById('settings-overlay');
+	    
+	    if (settings) {
+	        settings.classList.add('hidden');
+	        // Délai pour l'animation
+	        setTimeout(() => {
+	            settings.style.display = 'none';
+	        }, 300);
+	    }
+	    if (overlay) {
+	        overlay.classList.add('hidden');
+	        setTimeout(() => {
+	            overlay.style.display = 'none';
+	        }, 300);
+	    }
+	    
+	    // Restaurer le scroll du body
+	    document.body.style.overflow = '';
+	}
+	    
     /**
      * Applique les paramètres
      */
@@ -550,21 +590,33 @@ class AngelAvatarApp {
     /**
      * Nettoie les ressources
      */
-    dispose() {
-        if (this.avatarController && typeof this.avatarController.dispose === 'function') {
-            this.avatarController.dispose();
-        }
-        
-        if (this.avatarRenderer && typeof this.avatarRenderer.dispose === 'function') {
-            this.avatarRenderer.dispose();
-        }
-        
-        if (this.websocketManager && typeof this.websocketManager.disconnect === 'function') {
-            this.websocketManager.disconnect();
-        }
-        
-        console.log('🧹 AngelAvatarApp nettoyé');
-    }
+	dispose() {
+	    if (this.avatarController && typeof this.avatarController.dispose === 'function') {
+	        this.avatarController.dispose();
+	    }
+	    
+	    if (this.avatarRenderer && typeof this.avatarRenderer.dispose === 'function') {
+	        this.avatarRenderer.dispose();
+	    }
+	    
+	    if (this.websocketManager && typeof this.websocketManager.disconnect === 'function') {
+	        this.websocketManager.disconnect();
+	    }
+	    
+	    // Nettoyer le container
+	    const container = document.getElementById('avatar-viewport');
+	    if (container) {
+	        const canvases = container.querySelectorAll('canvas');
+	        canvases.forEach(canvas => canvas.remove());
+	    }
+	    
+	    // Libérer l'instance singleton
+	    if (window.angelAppInstance === this) {
+	        window.angelAppInstance = null;
+	    }
+	    
+	    console.log('🧹 AngelAvatarApp nettoyé');
+	}
 }
 
 // Export pour utilisation globale
@@ -573,6 +625,17 @@ window.AngelAvatarApp = AngelAvatarApp;
 // Initialisation automatique avec gestion d'erreurs améliorée
 document.addEventListener('DOMContentLoaded', () => {
     console.log('📄 DOM prêt, initialisation AngelAvatarApp...');
+    
+    // Protection contre les initialisations multiples
+    if (window.angelApp && window.angelApp.isInitialized) {
+        console.log('✅ AngelAvatarApp déjà initialisé');
+        return;
+    }
+    
+    // Nettoyer toute instance précédente
+    if (window.angelApp && typeof window.angelApp.dispose === 'function') {
+        window.angelApp.dispose();
+    }
     
     // Attendre que tous les scripts soient chargés
     setTimeout(() => {
@@ -585,4 +648,23 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('❌ Erreur création AngelAvatarApp:', error);
         }
     }, 100);
+});
+
+window.addEventListener('error', (event) => {
+    if (event.error && event.error.message && event.error.message.includes('canvas')) {
+        console.warn('⚠️ Erreur canvas détectée, tentative de récupération');
+        
+        // Essayer de redémarrer l'avatar
+        if (window.angelApp && !window.angelApp.isInitialized) {
+            setTimeout(() => {
+                window.angelApp.init().catch(console.error);
+            }, 1000);
+        }
+    }
+});
+
+window.addEventListener('beforeunload', () => {
+    if (window.angelApp && typeof window.angelApp.dispose === 'function') {
+        window.angelApp.dispose();
+    }
 });

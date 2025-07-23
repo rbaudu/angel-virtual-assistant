@@ -58,6 +58,10 @@ html, body {
     object-position: center;
 }
 
+#avatar-viewport canvas:not(:first-child) {
+    display: none !important;
+}
+
 /* Spinner de chargement - Centré */
 .loading-spinner {
     position: absolute;
@@ -95,6 +99,12 @@ html, body {
 @keyframes pulse {
     0%, 100% { transform: scale(1); opacity: 1; }
     50% { transform: scale(1.2); opacity: 0.7; }
+}
+
+.hidden {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
 }
 
 /* Bulle de message - Responsive */
@@ -209,14 +219,15 @@ html, body {
     display: flex;
     justify-content: center;
     align-items: center;
-    opacity: 0;
-    visibility: hidden;
+    opacity: 1;
+    visibility: visible;
     transition: all 0.3s ease;
 }
 
-#settings-overlay:not(.hidden) {
-    opacity: 1;
-    visibility: visible;
+#settings-overlay.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
 }
 
 /* Panneau de paramètres */
@@ -231,16 +242,17 @@ html, body {
     overflow-y: auto;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     border: 1px solid rgba(255, 255, 255, 0.3);
-    transform: scale(0.9);
-    transition: all 0.3s ease;
-    opacity: 0;
-    visibility: hidden;
-}
-
-#avatar-settings:not(.hidden) {
     transform: scale(1);
+    transition: all 0.3s ease;
     opacity: 1;
     visibility: visible;
+}
+
+#avatar-settings.hidden {
+    transform: scale(0.9);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
 }
 
 .settings-title {
@@ -340,21 +352,6 @@ html, body {
     }
 }
 
-/* Styles spéciaux pour maximiser l'avatar */
-.avatar-fullscreen #avatar-viewport {
-    height: calc(100vh - 60px);
-    padding: 20px;
-}
-
-.avatar-fullscreen #avatar-viewport canvas {
-    width: 90vw !important;
-    height: 85vh !important;
-    max-width: none !important;
-    max-height: none !important;
-    min-width: 300px;
-    min-height: 400px;
-}
-
 /* Responsivité mobile */
 @media (max-width: 768px) {
     #avatar-controls {
@@ -449,21 +446,31 @@ html, body {
 }
 
 @media (min-width: 1200px) {
+    #avatar-viewport {
+        padding: 40px;
+    }
+    
     #avatar-viewport canvas {
-        transform: scale(1.5);
+        min-width: 600px !important;
+        min-height: 600px !important;
     }
 }
 
 @media (min-width: 1600px) {
+    #avatar-viewport {
+        padding: 60px;
+    }
+    
     #avatar-viewport canvas {
-        transform: scale(1.8);
+        min-width: 800px !important;
+        min-height: 700px !important;
     }
 }
 
 /* Animation de chargement améliorée */
 @keyframes breathe {
-    0%, 100% { transform: scale(1.2); }
-    50% { transform: scale(1.25); }
+    0%, 100% { opacity: 0.8; }
+    50% { opacity: 1; }
 }
 
 #avatar-viewport.loading canvas {
