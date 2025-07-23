@@ -1,6 +1,6 @@
 /**
- * Moteur de rendu 3D pour l'avatar utilisant Three.js
- * Gère le chargement, l'affichage et les animations de l'avatar 3D
+ * FINAL: Moteur de rendu 3D pour l'avatar utilisant Three.js
+ * Version finale sans cube de test
  */
 
 class AvatarRenderer {
@@ -27,6 +27,7 @@ class AvatarRenderer {
         // Éclairage
         this.lights = [];
         
+        console.log('🎬 AvatarRenderer: Début initialisation');
         this.initialize();
     }
     
@@ -34,76 +35,118 @@ class AvatarRenderer {
      * Initialise le moteur de rendu 3D
      */
     initialize() {
-        this.createScene();
-        this.createCamera();
-        this.createRenderer();
-        this.createLights();
-        this.createControls();
-        this.startRenderLoop();
-        
-        // Gestion du redimensionnement
-        window.addEventListener('resize', () => this.onWindowResize());
-        
-        console.log('Moteur de rendu 3D initialisé');
+        try {
+            // Nettoyer le container d'abord
+            this.clearContainer();
+            
+            this.createScene();
+            this.createCamera();
+            this.createRenderer();
+            this.createLights();
+            this.startRenderLoop();
+            
+            // Gestion du redimensionnement
+            window.addEventListener('resize', () => this.onWindowResize());
+            
+            console.log('✅ AvatarRenderer: Moteur de rendu 3D initialisé');
+            
+        } catch (error) {
+            console.error('❌ AvatarRenderer: Erreur initialisation:', error);
+            throw error;
+        }
     }
     
     /**
-     * Crée la scène 3D
+     * Nettoie le container
+     */
+    clearContainer() {
+        while (this.container.firstChild) {
+            this.container.removeChild(this.container.firstChild);
+        }
+        console.log('🧹 Container nettoyé');
+    }
+    
+    /**
+     * Crée la scène 3D avec fond transparent pour l'avatar
      */
     createScene() {
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0xf0f0f0);
         
-        // Ajout d'un environnement de base
-        const geometry = new THREE.PlaneGeometry(10, 10);
-        const material = new THREE.MeshLambertMaterial({ color: 0xffffff });
-        const floor = new THREE.Mesh(geometry, material);
-        floor.rotation.x = -Math.PI / 2;
-        floor.position.y = -1;
-        this.scene.add(floor);
+        // CORRECTION: Fond transparent pour un rendu propre
+        this.scene.background = null;
+        
+        console.log('📦 Scène créée');
     }
     
     /**
-     * Crée la caméra
+     * Crée la caméra avec position optimale
      */
     createCamera() {
-        const aspect = this.container.clientWidth / this.container.clientHeight;
+        const width = this.container.clientWidth || 800;
+        const height = this.container.clientHeight || 600;
+        const aspect = width / height;
+        
         this.camera = new THREE.PerspectiveCamera(50, aspect, 0.1, 1000);
+        
+        // Position caméra optimisée pour voir l'avatar
         this.camera.position.set(0, 1.6, 3);
         this.camera.lookAt(0, 1.6, 0);
+        
+        console.log('📷 Caméra créée:', {
+            position: this.camera.position,
+            aspect: aspect,
+            size: { width, height }
+        });
     }
     
     /**
-     * Crée le renderer
+     * Crée le renderer avec paramètres optimaux
      */
     createRenderer() {
+        const width = this.container.clientWidth || 800;
+        const height = this.container.clientHeight || 600;
+        
+        // Configuration renderer pour l'avatar
         this.renderer = new THREE.WebGLRenderer({ 
             antialias: this.config.get('rendering.antialiasing', true),
-            alpha: true
+            alpha: true,  // Transparent pour l'avatar
+            preserveDrawingBuffer: true
         });
         
-        this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
-        this.renderer.setPixelRatio(window.devicePixelRatio);
+        this.renderer.setSize(width, height);
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         
-        // Configuration des ombres
+        // Paramètres de rendu optimisés
+        this.renderer.outputEncoding = THREE.sRGBEncoding;
+        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        this.renderer.toneMappingExposure = 1;
+        
+        // Configuration des ombres si activée
         if (this.config.get('rendering.shadows', true)) {
             this.renderer.shadowMap.enabled = true;
             this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         }
         
-        // Paramètres de rendu
-        this.renderer.outputEncoding = THREE.sRGBEncoding;
-        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        this.renderer.toneMappingExposure = 1;
-        
+        // Ajouter le canvas au container
         this.container.appendChild(this.renderer.domElement);
+        
+        // Styles du canvas pour l'intégration
+        const canvas = this.renderer.domElement;
+        canvas.style.display = 'block';
+        canvas.style.width = '100%';
+        canvas.style.height = '100%';
+        
+        console.log('🖥️ Renderer créé:', {
+            size: { width, height },
+            pixelRatio: this.renderer.getPixelRatio()
+        });
     }
     
     /**
-     * Crée l'éclairage de la scène
+     * Crée l'éclairage optimisé pour l'avatar
      */
     createLights() {
-        // Lumière ambiante
+        // Lumière ambiante douce
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
         this.scene.add(ambientLight);
         this.lights.push(ambientLight);
@@ -134,24 +177,8 @@ class AvatarRenderer {
         rimLight.position.set(0, 5, -10);
         this.scene.add(rimLight);
         this.lights.push(rimLight);
-    }
-    
-    /**
-     * Crée les contrôles de caméra
-     */
-    createControls() {
-        if (typeof THREE.OrbitControls !== 'undefined') {
-            this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
-            this.controls.target.set(0, 1.6, 0);
-            this.controls.enableDamping = true;
-            this.controls.dampingFactor = 0.1;
-            this.controls.enableZoom = true;
-            this.controls.enablePan = false;
-            this.controls.minDistance = 1;
-            this.controls.maxDistance = 10;
-            this.controls.minPolarAngle = Math.PI / 6;
-            this.controls.maxPolarAngle = Math.PI / 2;
-        }
+        
+        console.log('💡 Éclairage créé (4 sources lumineuses)');
     }
     
     /**
@@ -159,14 +186,8 @@ class AvatarRenderer {
      */
     startRenderLoop() {
         this.isRendering = true;
+        console.log('🔄 Démarrage boucle de rendu');
         this.render();
-    }
-    
-    /**
-     * Arrête la boucle de rendu
-     */
-    stopRenderLoop() {
-        this.isRendering = false;
     }
     
     /**
@@ -184,13 +205,15 @@ class AvatarRenderer {
             this.mixer.update(delta);
         }
         
-        // Mise à jour des contrôles
+        // Mise à jour des contrôles si présents
         if (this.controls) {
             this.controls.update();
         }
         
         // Rendu de la scène
-        this.renderer.render(this.scene, this.camera);
+        if (this.renderer && this.scene && this.camera) {
+            this.renderer.render(this.scene, this.camera);
+        }
     }
     
     /**
@@ -198,22 +221,29 @@ class AvatarRenderer {
      */
     async loadAvatar(modelUrl) {
         return new Promise((resolve, reject) => {
-            console.log('Chargement du modèle avatar:', modelUrl);
+            console.log('📥 Chargement avatar:', modelUrl);
+            
+            if (!window.THREE || !window.THREE.GLTFLoader) {
+                console.error('❌ GLTFLoader non disponible');
+                reject(new Error('GLTFLoader non disponible'));
+                return;
+            }
             
             const loader = new THREE.GLTFLoader();
             
             loader.load(
                 modelUrl,
                 (gltf) => {
+                    console.log('✅ Avatar chargé avec succès');
                     this.onAvatarLoaded(gltf);
                     resolve(gltf);
                 },
                 (progress) => {
                     const percent = (progress.loaded / progress.total) * 100;
-                    console.log(`Chargement: ${percent.toFixed(1)}%`);
+                    console.log(`📊 Chargement: ${percent.toFixed(1)}%`);
                 },
                 (error) => {
-                    console.error('Erreur lors du chargement du modèle:', error);
+                    console.error('❌ Erreur chargement avatar:', error);
                     reject(error);
                 }
             );
@@ -235,9 +265,11 @@ class AvatarRenderer {
         this.avatarModel.scale.setScalar(1);
         this.avatarModel.position.set(0, 0, 0);
         
-        // Activation des ombres
+        // Activation des ombres et optimisation
+        let meshCount = 0;
         this.avatarModel.traverse((child) => {
             if (child.isMesh) {
+                meshCount++;
                 child.castShadow = true;
                 child.receiveShadow = true;
                 
@@ -248,7 +280,7 @@ class AvatarRenderer {
             }
         });
         
-        // Configuration des animations
+        // Configuration des animations si présentes
         if (gltf.animations && gltf.animations.length > 0) {
             this.mixer = new THREE.AnimationMixer(this.avatarModel);
             
@@ -257,14 +289,45 @@ class AvatarRenderer {
                 this.animations.set(clip.name, action);
             });
             
-            // Animation par défaut
-            this.playAnimation('idle', { loop: true });
+            console.log('🎭 Animations disponibles:', Array.from(this.animations.keys()));
         }
         
         this.scene.add(this.avatarModel);
         
-        console.log('Avatar chargé avec succès');
-        console.log('Animations disponibles:', Array.from(this.animations.keys()));
+        // Positionner la caméra pour voir l'avatar
+        this.focusCameraOnAvatar();
+        
+        console.log(`✅ Avatar ajouté à la scène (${meshCount} mesh)`);
+    }
+    
+    /**
+     * Positionne la caméra pour voir l'avatar
+     */
+    focusCameraOnAvatar() {
+        if (!this.avatarModel) return;
+        
+        // Calculer la bounding box
+        const box = new THREE.Box3().setFromObject(this.avatarModel);
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+        
+        // Ajuster position Y pour poser l'avatar au sol
+        this.avatarModel.position.y = -box.min.y;
+        
+        // Repositionner la caméra
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const cameraDistance = maxDim * 3;
+        
+        this.camera.position.set(0, size.y * 0.6, cameraDistance);
+        this.camera.lookAt(0, size.y * 0.5, 0);
+        
+        // Mettre à jour les contrôles si ils existent
+        if (this.controls) {
+            this.controls.target.set(0, size.y * 0.5, 0);
+            this.controls.update();
+        }
+        
+        console.log('📷 Caméra repositionnée pour l\'avatar');
     }
     
     /**
@@ -299,7 +362,7 @@ class AvatarRenderer {
         
         this.activeAnimations.push(action);
         
-        console.log(`Animation '${name}' démarrée`);
+        console.log(`🎭 Animation '${name}' démarrée`);
         
         return action;
     }
@@ -328,27 +391,10 @@ class AvatarRenderer {
     }
     
     /**
-     * Arrête toutes les animations
-     */
-    stopAllAnimations(fadeOut = 0.5) {
-        this.activeAnimations.forEach(action => {
-            if (fadeOut > 0) {
-                action.fadeOut(fadeOut);
-            } else {
-                action.stop();
-            }
-        });
-        this.activeAnimations = [];
-    }
-    
-    /**
      * Change l'émotion de l'avatar
      */
     setEmotion(emotion, intensity = 0.7) {
-        console.log(`Changement d'émotion: ${emotion} (${intensity})`);
-        
-        // Ici, on pourrait modifier les expressions faciales
-        // ou jouer des animations spécifiques à l'émotion
+        console.log(`😊 Changement d'émotion: ${emotion} (${intensity})`);
         
         const emotionAnimation = this.getEmotionAnimation(emotion);
         if (emotionAnimation) {
@@ -376,7 +422,7 @@ class AvatarRenderer {
      * Exécute un geste
      */
     playGesture(gestureType) {
-        console.log(`Geste: ${gestureType}`);
+        console.log(`👋 Geste: ${gestureType}`);
         
         const gestureAnimation = this.getGestureAnimation(gestureType);
         if (gestureAnimation) {
@@ -407,6 +453,8 @@ class AvatarRenderer {
      * Gestion du redimensionnement de la fenêtre
      */
     onWindowResize() {
+        if (!this.camera || !this.renderer) return;
+        
         const width = this.container.clientWidth;
         const height = this.container.clientHeight;
         
@@ -414,13 +462,15 @@ class AvatarRenderer {
         this.camera.updateProjectionMatrix();
         
         this.renderer.setSize(width, height);
+        
+        console.log('📐 Redimensionnement:', { width, height });
     }
     
     /**
      * Nettoie les ressources
      */
     dispose() {
-        this.stopRenderLoop();
+        this.isRendering = false;
         
         if (this.renderer) {
             this.renderer.dispose();
@@ -436,11 +486,16 @@ class AvatarRenderer {
         }
         
         // Nettoyer la scène
-        while (this.scene.children.length > 0) {
+        while (this.scene && this.scene.children.length > 0) {
             this.scene.remove(this.scene.children[0]);
         }
         
-        console.log('Moteur de rendu nettoyé');
+        // Nettoyer le container
+        while (this.container && this.container.firstChild) {
+            this.container.removeChild(this.container.firstChild);
+        }
+        
+        console.log('🧹 AvatarRenderer nettoyé');
     }
     
     /**
@@ -448,10 +503,11 @@ class AvatarRenderer {
      */
     getDebugInfo() {
         return {
-            renderer: this.renderer.info,
+            renderer: this.renderer ? this.renderer.info : null,
             animations: Array.from(this.animations.keys()),
             activeAnimations: this.activeAnimations.length,
-            avatarLoaded: !!this.avatarModel
+            avatarLoaded: !!this.avatarModel,
+            isRendering: this.isRendering
         };
     }
 }

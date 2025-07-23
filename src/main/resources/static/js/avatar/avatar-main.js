@@ -1,29 +1,31 @@
 /**
- * Application principale Angel Avatar
- * Gère l'orchestration de tous les composants avatar
+ * CORRECTION: Application principale Angel Avatar
+ * PROBLÈME IDENTIFIÉ: Initialisation multiple et problèmes de container
  */
 class AngelAvatarApp {
     constructor() {
-		if (window.angelAppInstance) {
-		    console.warn('⚠️ AngelAvatarApp instance déjà existante');
-		    return window.angelAppInstance;
-		}
-		this.avatarRenderer = null;
-        this.avatarController = null;
-        this.websocketManager = null;
+        // CORRECTION: Protection contre instances multiples
+        if (window.angelAppInstance) {
+            console.warn('⚠️ Instance AngelAvatarApp existante, réutilisation');
+            return window.angelAppInstance;
+        }
+        
+        this.avatarRenderer = null;
         this.isInitialized = false;
         this.isMuted = false;
-		// Marquer cette instance comme active
-		window.angelAppInstance = this;
+        this.initAttempts = 0;
+        this.maxInitAttempts = 3;
         
-        // Configuration initiale compatible avec AvatarRenderer
+        // Marquer cette instance comme active
+        window.angelAppInstance = this;
+        
+        // Configuration compatible avec AvatarRenderer
         this.config = {
             gender: 'female',
             age: 30,
             style: 'casual',
             voice: 'female_french_warm',
             
-            // Méthode get() pour compatibilité avec AvatarRenderer
             get: function(key, defaultValue) {
                 const keys = key.split('.');
                 let value = this;
@@ -39,7 +41,6 @@ class AngelAvatarApp {
                 return value !== undefined ? value : defaultValue;
             },
             
-            // Configuration par défaut pour le rendu
             rendering: {
                 antialiasing: true,
                 shadows: true,
@@ -52,73 +53,122 @@ class AngelAvatarApp {
                 style: 'casual'
             },
             
-            // Configuration Ready Player Me
             readyPlayerMe: {
                 enabled: true,
                 defaultAvatarId: '687f66fafe8107131699bf7b'
             }
         };
         
-        console.log('🎭 Création de AngelAvatarApp...');
+        console.log('🎭 AngelAvatarApp créé');
     }
     
     async init() {
-        console.log('🚀 Initialisation de Angel Avatar App...');
+        if (this.isInitialized) {
+            console.log('✅ Déjà initialisé');
+            return;
+        }
+        
+        this.initAttempts++;
+        console.log(`🚀 Initialisation Angel Avatar App (tentative ${this.initAttempts}/${this.maxInitAttempts})...`);
         
         try {
-            // Attendre que les dépendances soient chargées
+            // CORRECTION: Vérifications préliminaires
+            if (!this.checkPrerequisites()) {
+                throw new Error('Prérequis manquants');
+            }
+            
+            // CORRECTION: Nettoyer d'abord
+            this.cleanup();
+            
+            // Attendre les dépendances
             await this.waitForDependencies();
             
-            // Initialiser le renderer directement
+            // Initialiser le renderer
             await this.initializeRenderer();
             
-            // Configurer les gestionnaires d'événements
+            // Configurer les événements
             this.setupEventHandlers();
             
-            // Charger l'avatar par défaut
+            // Charger l'avatar
             await this.loadDefaultAvatar();
             
-            // Initialiser WebSocket si disponible
-            this.initializeWebSocket();
-            
-            // Masquer le spinner de chargement
-            this.hideLoadingSpinner();
-            
-            // Afficher l'avatar
-            this.showAvatar();
-            
-            this.isInitialized = true;
-            this.updateStatus('Prêt');
-            
-            console.log('✅ Angel Avatar App initialisé avec succès');
+            // Finaliser
+            this.finalizeInit();
             
         } catch (error) {
-            console.error('❌ Erreur lors de l\'initialisation:', error);
-            this.handleInitError(error);
+            console.error(`❌ Erreur initialisation (tentative ${this.initAttempts}):`, error);
+            await this.handleInitError(error);
         }
     }
     
     /**
-     * Attend que les dépendances soient chargées
+     * CORRECTION: Vérifie les prérequis
+     */
+    checkPrerequisites() {
+        const container = document.getElementById('avatar-viewport');
+        if (!container) {
+            console.error('❌ Container avatar-viewport manquant');
+            return false;
+        }
+        
+        console.log('✅ Container trouvé:', {
+            width: container.clientWidth,
+            height: container.clientHeight,
+            children: container.children.length
+        });
+        
+        return true;
+    }
+    
+    /**
+     * CORRECTION: Nettoie les instances précédentes
+     */
+    cleanup() {
+        console.log('🧹 Nettoyage...');
+        
+        // Disposer ancien renderer
+        if (this.avatarRenderer && typeof this.avatarRenderer.dispose === 'function') {
+            this.avatarRenderer.dispose();
+            this.avatarRenderer = null;
+        }
+        
+        // Nettoyer le container
+        const container = document.getElementById('avatar-viewport');
+        if (container) {
+            const canvases = container.querySelectorAll('canvas');
+            canvases.forEach(canvas => {
+                console.log('🗑️ Suppression canvas existant');
+                canvas.remove();
+            });
+        }
+    }
+    
+    /**
+     * CORRECTION: Attendre les dépendances avec timeout plus long
      */
     async waitForDependencies() {
         return new Promise((resolve, reject) => {
             let attempts = 0;
-            const maxAttempts = 100; // 10 secondes max
+            const maxAttempts = 150; // 15 secondes
             
             const checkDependencies = () => {
                 attempts++;
                 
                 const hasThree = typeof THREE !== 'undefined';
-                const hasGLTFLoader = window.GLTFLoaderReady || (typeof THREE !== 'undefined' && THREE.GLTFLoader);
+                const hasGLTFLoader = hasThree && (
+                    (THREE.GLTFLoader) || 
+                    window.GLTFLoaderReady
+                );
                 
-                console.log(`⏳ Vérification dépendances (${attempts}/${maxAttempts}): THREE=${hasThree}, GLTFLoader=${hasGLTFLoader}`);
+                if (attempts % 10 === 0) { // Log toutes les secondes
+                    console.log(`⏳ Dépendances (${attempts}/${maxAttempts}): THREE=${hasThree}, GLTFLoader=${hasGLTFLoader}`);
+                }
                 
                 if (hasThree && hasGLTFLoader) {
-                    console.log('✅ Dépendances chargées');
+                    console.log('✅ Toutes les dépendances chargées');
                     resolve();
                 } else if (attempts >= maxAttempts) {
-                    reject(new Error('Timeout: dépendances non chargées dans les temps'));
+                    reject(new Error(`Timeout: dépendances non chargées après ${maxAttempts/10}s`));
                 } else {
                     setTimeout(checkDependencies, 100);
                 }
@@ -129,80 +179,300 @@ class AngelAvatarApp {
     }
     
     /**
-     * Initialise le renderer directement
+     * CORRECTION: Initialise le renderer avec protection
      */
-	async initializeRenderer() {
-	    const container = document.getElementById('avatar-viewport');
-	    if (!container) {
-	        throw new Error('Container avatar-viewport non trouvé');
-	    }
-	    
-	    // CORRECTION: Nettoyer le container pour éviter la duplication
-	    const existingCanvases = container.querySelectorAll('canvas');
-	    existingCanvases.forEach(canvas => {
-	        console.log('🧹 Suppression canvas existant');
-	        canvas.remove();
-	    });
-	    
-	    if (window.AvatarRenderer) {
-	        console.log('📱 Initialisation AvatarRenderer...');
-	        try {
-	            this.avatarRenderer = new AvatarRenderer(container, this.config);
-	            console.log('✅ AvatarRenderer initialisé avec succès');
-	        } catch (error) {
-	            console.error('❌ Erreur AvatarRenderer:', error);
-	            throw error;
-	        }
-	    } else {
-	        console.warn('⚠️ AvatarRenderer non disponible, mode dégradé');
-	    }
-	    
-	    // Initialiser le contrôleur si disponible
-	    if (window.AvatarController) {
-	        console.log('🎮 Initialisation AvatarController...');
-	        try {
-	            this.avatarController = new AvatarController();
-	            await this.avatarController.initialize();
-	            console.log('✅ AvatarController initialisé');
-	        } catch (error) {
-	            console.warn('⚠️ AvatarController échoué:', error.message);
-	        }
-	    }
-	}    
-	
-    /**
-     * Initialise WebSocket
-     */
-    initializeWebSocket() {
-        if (window.AvatarWebSocket) {
-            console.log('🔌 Initialisation WebSocket...');
-            try {
-                this.websocketManager = new AvatarWebSocket(this.config);
-                console.log('✅ WebSocket initialisé');
-            } catch (error) {
-                console.warn('⚠️ WebSocket non disponible:', error.message);
+    async initializeRenderer() {
+        const container = document.getElementById('avatar-viewport');
+        if (!container) {
+            throw new Error('Container avatar-viewport non trouvé');
+        }
+        
+        console.log('📱 Initialisation AvatarRenderer...');
+        
+        try {
+            // CORRECTION: Vérifier que AvatarRenderer est disponible
+            if (!window.AvatarRenderer) {
+                throw new Error('AvatarRenderer non disponible');
             }
+            
+            this.avatarRenderer = new AvatarRenderer(container, this.config);
+            
+            // CORRECTION: Vérifier que l'initialisation a réussi
+            if (!this.avatarRenderer.renderer) {
+                throw new Error('Renderer non créé');
+            }
+            
+            console.log('✅ AvatarRenderer initialisé avec succès');
+            
+        } catch (error) {
+            console.error('❌ Erreur AvatarRenderer:', error);
+            throw error;
         }
     }
     
     /**
-     * Gère les erreurs d'initialisation
+     * CORRECTION: Charge l'avatar avec stratégie de fallback
      */
-    handleInitError(error) {
-        console.error('❌ Erreur critique:', error);
-        
-        // Afficher l'erreur dans l'interface
-        this.showError(`Erreur Avatar: ${error.message}`);
-        
-        // Essayer un mode de fallback
-        this.updateStatus('Mode dégradé');
+	async loadDefaultAvatar() {
+	    console.log('📥 Chargement avatar par défaut...');
+	    
+	    if (!this.avatarRenderer) {
+	        console.warn('⚠️ Pas de renderer, création avatar de base');
+	        return;
+	    }
+	    
+	    // SUPPRIMER ces lignes de test :
+	    // console.log('🎲 Test avec cube...');
+	    // this.avatarRenderer.addTestCube();
+	    // await new Promise(resolve => setTimeout(resolve, 1000));
+	    
+	    // Essayer Ready Player Me directement
+	    const readyPlayerMeId = this.config.get('readyPlayerMe.defaultAvatarId', '687f66fafe8107131699bf7b');
+	    if (readyPlayerMeId) {
+	        const readyPlayerMeUrl = `https://models.readyplayer.me/${readyPlayerMeId}.glb`;
+	        console.log('🎯 Chargement Ready Player Me:', readyPlayerMeUrl);
+	        
+	        try {
+	            await this.avatarRenderer.loadAvatar(readyPlayerMeUrl);
+	            console.log('✅ Avatar Ready Player Me chargé');
+	            return;
+	        } catch (error) {
+	            console.warn('⚠️ Ready Player Me échoué:', error.message);
+	        }
+	    }
+	    
+	    // Fallback vers modèles locaux si nécessaire
+	    const localModelPaths = [
+	        this.getModelPath(this.config.gender, this.config.age, this.config.style),
+	        '/models/avatars/female_mature_elegant.glb',
+	        '/models/avatars/female_adult_casual.glb'
+	    ];
+	    
+	    for (const modelPath of localModelPaths) {
+	        try {
+	            console.log(`🔄 Tentative modèle local: ${modelPath}`);
+	            await this.avatarRenderer.loadAvatar(modelPath);
+	            console.log(`✅ Avatar local chargé: ${modelPath}`);
+	            return;
+	        } catch (error) {
+	            console.warn(`⚠️ Échec chargement ${modelPath}:`, error.message);
+	        }
+	    }
+	    
+	    console.warn('⚠️ Tous les modèles ont échoué');
+	}
+	    
+    /**
+     * CORRECTION: Finalise l'initialisation
+     */
+    finalizeInit() {
+        this.isInitialized = true;
         this.hideLoadingSpinner();
+        this.updateStatus('Prêt');
+        this.showAvatar();
+        
+        console.log('✅ Angel Avatar App initialisé avec succès');
+        
+        // CORRECTION: Debug info final
+        if (this.avatarRenderer && typeof this.avatarRenderer.getDebugInfo === 'function') {
+            this.avatarRenderer.getDebugInfo();
+        }
     }
     
     /**
-     * Affiche une erreur à l'utilisateur
+     * CORRECTION: Gère les erreurs d'initialisation avec retry
      */
+    async handleInitError(error) {
+        console.error('❌ Erreur critique:', error);
+        
+        if (this.initAttempts < this.maxInitAttempts) {
+            console.log(`🔄 Nouvelle tentative dans 2 secondes...`);
+            setTimeout(() => {
+                this.init();
+            }, 2000);
+        } else {
+            console.error('❌ Échec définitif après', this.maxInitAttempts, 'tentatives');
+            this.showError(`Erreur Avatar: ${error.message}`);
+            this.updateStatus('Erreur');
+            this.hideLoadingSpinner();
+        }
+    }
+    
+    /**
+     * CORRECTION: Configuration événements simplifiée
+     */
+    setupEventHandlers() {
+        console.log('⚙️ Configuration événements...');
+        
+        // Éléments UI
+        const elements = {
+            muteBtn: document.getElementById('mute-btn'),
+            settingsBtn: document.getElementById('settings-btn'),
+            cancelSettings: document.getElementById('cancel-settings'),
+            settingsOverlay: document.getElementById('settings-overlay'),
+            applySettings: document.getElementById('apply-settings')
+        };
+        
+        // Event listeners avec protection
+        this.safeAddEventListener(elements.muteBtn, 'click', () => this.toggleMute());
+        this.safeAddEventListener(elements.settingsBtn, 'click', () => this.showSettings());
+        this.safeAddEventListener(elements.cancelSettings, 'click', () => this.hideSettings());
+        this.safeAddEventListener(elements.settingsOverlay, 'click', () => this.hideSettings());
+        this.safeAddEventListener(elements.applySettings, 'click', () => this.applySettings());
+        
+        // Redimensionnement
+        window.addEventListener('resize', () => {
+            if (this.avatarRenderer && typeof this.avatarRenderer.onWindowResize === 'function') {
+                this.avatarRenderer.onWindowResize();
+            }
+        });
+        
+        // Échap pour fermer settings
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                this.hideSettings();
+            }
+        });
+        
+        console.log('✅ Événements configurés');
+    }
+    
+    safeAddEventListener(element, event, handler) {
+        if (element && typeof element.addEventListener === 'function') {
+            element.addEventListener(event, handler);
+        } else {
+            console.warn(`⚠️ Élément manquant pour ${event}`);
+        }
+    }
+    
+    /**
+     * CORRECTION: Affichage des paramètres avec force
+     */
+    showSettings() {
+        console.log('⚙️ Ouverture paramètres...');
+        
+        const settings = document.getElementById('avatar-settings');
+        const overlay = document.getElementById('settings-overlay');
+        
+        if (overlay) {
+            overlay.classList.remove('hidden');
+            overlay.style.display = 'flex';
+            overlay.style.opacity = '1';
+            overlay.style.visibility = 'visible';
+        }
+        
+        if (settings) {
+            settings.classList.remove('hidden');
+            settings.style.opacity = '1';
+            settings.style.visibility = 'visible';
+            settings.style.transform = 'translate(-50%, -50%) scale(1)';
+        }
+        
+        document.body.style.overflow = 'hidden';
+        
+        console.log('✅ Paramètres ouverts');
+    }
+    
+    hideSettings() {
+        console.log('❌ Fermeture paramètres...');
+        
+        const settings = document.getElementById('avatar-settings');
+        const overlay = document.getElementById('settings-overlay');
+        
+        if (settings) {
+            settings.classList.add('hidden');
+        }
+        if (overlay) {
+            overlay.classList.add('hidden');
+        }
+        
+        document.body.style.overflow = '';
+    }
+    
+    async applySettings() {
+        console.log('⚙️ Application paramètres...');
+        this.hideSettings();
+    }
+    
+    /**
+     * Méthodes utilitaires
+     */
+    toggleMute() {
+        this.isMuted = !this.isMuted;
+        const muteBtn = document.getElementById('mute-btn');
+        if (muteBtn) {
+            muteBtn.textContent = this.isMuted ? '🔇' : '🔊';
+        }
+    }
+    
+    speak(text, emotion = 'neutral') {
+        console.log(`🗣️ Parole: "${text}" (${emotion})`);
+        this.showMessage(text);
+        this.setSpeakingIndicator(true);
+        
+        setTimeout(() => {
+            this.setSpeakingIndicator(false);
+            this.hideMessage();
+        }, text.length * 100);
+    }
+    
+    setEmotion(emotion, intensity = 0.7) {
+        console.log(`😊 Émotion: ${emotion} (${intensity})`);
+        if (this.avatarRenderer && typeof this.avatarRenderer.setEmotion === 'function') {
+            this.avatarRenderer.setEmotion(emotion, intensity);
+        }
+    }
+    
+    showMessage(text) {
+        const messageText = document.getElementById('message-text');
+        const messageBubble = document.getElementById('message-bubble');
+        
+        if (messageText) messageText.textContent = text;
+        if (messageBubble) messageBubble.classList.remove('hidden');
+    }
+    
+    hideMessage() {
+        const messageBubble = document.getElementById('message-bubble');
+        if (messageBubble) messageBubble.classList.add('hidden');
+    }
+    
+    setSpeakingIndicator(speaking) {
+        const indicator = document.getElementById('speaking-indicator');
+        if (indicator) {
+            indicator.style.display = speaking ? 'block' : 'none';
+        }
+    }
+    
+    updateStatus(status) {
+        const statusElement = document.getElementById('avatar-status');
+        if (statusElement) {
+            statusElement.textContent = status;
+        }
+    }
+    
+    showLoadingSpinner() {
+        const spinner = document.getElementById('loading-spinner');
+        if (spinner) spinner.style.display = 'block';
+    }
+    
+    hideLoadingSpinner() {
+        const spinner = document.getElementById('loading-spinner');
+        if (spinner) spinner.style.display = 'none';
+    }
+    
+    showAvatar() {
+        const container = document.getElementById('avatar-container');
+        if (container) container.classList.add('visible');
+    }
+    
+    hideAvatar() {
+        const container = document.getElementById('avatar-container');
+        if (container) container.classList.remove('visible');
+    }
+    
     showError(message) {
+        console.error('🚨 Erreur:', message);
+        
         const errorDiv = document.createElement('div');
         errorDiv.style.cssText = `
             position: fixed;
@@ -217,452 +487,87 @@ class AngelAvatarApp {
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         `;
         errorDiv.textContent = message;
+        errorDiv.onclick = () => errorDiv.remove();
+        
         document.body.appendChild(errorDiv);
         
-        // Masquer après 10 secondes
         setTimeout(() => {
             if (errorDiv.parentNode) {
-                errorDiv.parentNode.removeChild(errorDiv);
+                errorDiv.remove();
             }
         }, 10000);
     }
     
-    /**
-     * Charge l'avatar par défaut avec Ready Player Me prioritaire
-     */
-    async loadDefaultAvatar() {
-        console.log('📥 Chargement avatar par défaut...');
+    dispose() {
+        console.log('🧹 Nettoyage AngelAvatarApp...');
         
-        if (!this.avatarRenderer) {
-            console.warn('⚠️ Pas de renderer disponible');
-            return;
+        if (this.avatarRenderer && typeof this.avatarRenderer.dispose === 'function') {
+            this.avatarRenderer.dispose();
         }
         
-        // Priorité 1: Ready Player Me (direct, sans test)
-        const readyPlayerMeId = this.config.get('readyPlayerMe.defaultAvatarId', '687f66fafe8107131699bf7b');
-        if (readyPlayerMeId) {
-            const readyPlayerMeUrl = `https://models.readyplayer.me/${readyPlayerMeId}.glb`;
-            console.log('🎯 Tentative Ready Player Me directe:', readyPlayerMeUrl);
-            
-            try {
-                const success = await this.avatarRenderer.loadAvatar(readyPlayerMeUrl);
-                if (success) {
-                    console.log('✅ Avatar Ready Player Me chargé:', readyPlayerMeUrl);
-                    return;
-                }
-            } catch (error) {
-                console.warn('⚠️ Ready Player Me échoué:', error.message);
-            }
+        const container = document.getElementById('avatar-viewport');
+        if (container) {
+            const canvases = container.querySelectorAll('canvas');
+            canvases.forEach(canvas => canvas.remove());
         }
         
-        // Priorité 2: Modèles locaux
-        const localModelPaths = [
-            this.getModelPath(this.config.gender, this.config.age, this.config.style),
-            '/models/avatars/female_mature_elegant.glb',
-            '/models/avatars/female_adult_casual.glb'
-        ];
-        
-        for (const modelPath of localModelPaths) {
-            try {
-                console.log(`🔄 Tentative modèle local: ${modelPath}`);
-                const success = await this.avatarRenderer.loadAvatar(modelPath);
-                
-                if (success) {
-                    console.log(`✅ Avatar local chargé: ${modelPath}`);
-                    return;
-                }
-            } catch (error) {
-                console.warn(`⚠️ Échec chargement ${modelPath}:`, error.message);
-            }
+        if (window.angelAppInstance === this) {
+            window.angelAppInstance = null;
         }
         
-        console.warn('⚠️ Tous les modèles ont échoué');
+        this.isInitialized = false;
     }
-    
-    /**
-     * Génère le chemin du modèle
-     */
-    getModelPath(gender, age, style) {
-        const ageGroup = this.getAgeGroup(age);
-        return `/models/avatars/${gender}_${ageGroup}_${style}.glb`;
-    }
-    
-    /**
-     * Détermine le groupe d'âge
-     */
-    getAgeGroup(age) {
-        if (age < 30) return 'young';
-        if (age < 45) return 'adult';
-        if (age < 60) return 'mature';
-        return 'senior';
-    }
-    
-    /**
-     * Configure les gestionnaires d'événements
-     */
-    setupEventHandlers() {
-        console.log('⚙️ Configuration des gestionnaires d\'événements...');
-        
-        // Éléments de l'interface
-        const elements = {
-            muteBtn: document.getElementById('mute-btn'),
-            settingsBtn: document.getElementById('settings-btn'),
-            cancelSettings: document.getElementById('cancel-settings'),
-            settingsOverlay: document.getElementById('settings-overlay'),
-            applySettings: document.getElementById('apply-settings'),
-            genderSelect: document.getElementById('gender-select')
-        };
-        
-        // Bouton muet
-        this.safeAddEventListener(elements.muteBtn, 'click', () => this.toggleMute());
-        
-        // Bouton paramètres
-        this.safeAddEventListener(elements.settingsBtn, 'click', () => this.showSettings());
-        
-        // Fermeture des paramètres
-        this.safeAddEventListener(elements.cancelSettings, 'click', () => this.hideSettings());
-        this.safeAddEventListener(elements.settingsOverlay, 'click', () => this.hideSettings());
-        
-        // Application des paramètres
-        this.safeAddEventListener(elements.applySettings, 'click', () => this.applySettings());
-        
-        // Mise à jour de la voix selon le genre
-        this.safeAddEventListener(elements.genderSelect, 'change', (e) => this.updateVoiceOptions(e.target.value));
-        
-        // Gestion du redimensionnement
-        window.addEventListener('resize', () => {
-            if (this.avatarRenderer && typeof this.avatarRenderer.onWindowResize === 'function') {
-                this.avatarRenderer.onWindowResize();
-            }
-        });
-        
-        // Gestion des raccourcis clavier
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                this.hideSettings();
-            }
-        });
-        
-        console.log('✅ Gestionnaires d\'événements configurés');
-    }
-    
-    /**
-     * Ajoute un event listener de manière sécurisée
-     */
-    safeAddEventListener(element, event, handler) {
-        if (element && typeof element.addEventListener === 'function') {
-            element.addEventListener(event, handler);
-        } else {
-            console.warn(`⚠️ Élément non trouvé pour l'événement ${event}`);
-        }
-    }
-    
-    /**
-     * Bascule le mode muet
-     */
-    toggleMute() {
-        this.isMuted = !this.isMuted;
-        const muteBtn = document.getElementById('mute-btn');
-        if (muteBtn) {
-            muteBtn.textContent = this.isMuted ? '🔇' : '🔊';
-        }
-        console.log(`🔊 Mode muet: ${this.isMuted}`);
-    }
-    
-    /**
-     * Affiche les paramètres
-     */
-	showSettings() {
-	    console.log('⚙️ Ouverture panneau paramètres');
-	    
-	    const settings = document.getElementById('avatar-settings');
-	    const overlay = document.getElementById('settings-overlay');
-	    
-	    if (settings) {
-	        settings.classList.remove('hidden');
-	        settings.style.display = 'block';
-	    }
-	    if (overlay) {
-	        overlay.classList.remove('hidden');
-	        overlay.style.display = 'flex';
-	    }
-	    
-	    // Empêcher le scroll du body
-	    document.body.style.overflow = 'hidden';
-	}
-	    
-    /**
-     * Masque les paramètres
-     */
-	hideSettings() {
-	    console.log('❌ Fermeture panneau paramètres');
-	    
-	    const settings = document.getElementById('avatar-settings');
-	    const overlay = document.getElementById('settings-overlay');
-	    
-	    if (settings) {
-	        settings.classList.add('hidden');
-	        // Délai pour l'animation
-	        setTimeout(() => {
-	            settings.style.display = 'none';
-	        }, 300);
-	    }
-	    if (overlay) {
-	        overlay.classList.add('hidden');
-	        setTimeout(() => {
-	            overlay.style.display = 'none';
-	        }, 300);
-	    }
-	    
-	    // Restaurer le scroll du body
-	    document.body.style.overflow = '';
-	}
-	    
-    /**
-     * Applique les paramètres
-     */
-    async applySettings() {
-        console.log('⚙️ Application des paramètres...');
-        
-        const genderSelect = document.getElementById('gender-select');
-        const ageSelect = document.getElementById('age-select');
-        const styleSelect = document.getElementById('style-select');
-        const voiceSelect = document.getElementById('voice-select');
-        
-        if (genderSelect) this.config.gender = genderSelect.value;
-        if (ageSelect) this.config.age = parseInt(ageSelect.value);
-        if (styleSelect) this.config.style = styleSelect.value;
-        if (voiceSelect) this.config.voice = voiceSelect.value;
-        
-        console.log('📋 Nouvelle configuration:', this.config);
-        
-        // Recharger l'avatar avec les nouveaux paramètres
-        this.updateStatus('Mise à jour...');
-        await this.loadDefaultAvatar();
-        this.updateStatus('Prêt');
-        
-        // Fermer les paramètres
-        this.hideSettings();
-    }
-    
-    /**
-     * Met à jour les options de voix selon le genre
-     */
-    updateVoiceOptions(gender) {
-        const voiceSelect = document.getElementById('voice-select');
-        if (!voiceSelect) return;
-        
-        voiceSelect.innerHTML = '';
-        
-        const voices = gender === 'female' 
-            ? [
-                { value: 'female_french_warm', text: 'Femme - Chaleureuse' },
-                { value: 'female_french_professional', text: 'Femme - Professionnelle' }
-              ]
-            : [
-                { value: 'male_french_warm', text: 'Homme - Chaleureux' },
-                { value: 'male_french_professional', text: 'Homme - Professionnel' }
-              ];
-        
-        voices.forEach(voice => {
-            const option = document.createElement('option');
-            option.value = voice.value;
-            option.textContent = voice.text;
-            voiceSelect.appendChild(option);
-        });
-        
-        this.config.voice = voices[0].value;
-    }
-    
-    /**
-     * Fait parler l'avatar
-     */
-    speak(text, emotion = 'neutral') {
-        console.log(`🗣️ Parole: "${text}" (${emotion})`);
-        
-        if (this.avatarController && typeof this.avatarController.speak === 'function') {
-            this.avatarController.speak(text, emotion);
-        } else if (this.avatarRenderer) {
-            // Mode basique
-            this.showMessage(text);
-            this.setSpeakingIndicator(true);
-            
-            setTimeout(() => {
-                this.setSpeakingIndicator(false);
-                this.hideMessage();
-            }, text.length * 100);
-        }
-    }
-    
-    /**
-     * Définit l'émotion
-     */
-    setEmotion(emotion, intensity = 0.7) {
-        console.log(`😊 Émotion: ${emotion} (${intensity})`);
-        
-        if (this.avatarController && typeof this.avatarController.setEmotion === 'function') {
-            this.avatarController.setEmotion(emotion, intensity);
-        } else if (this.avatarRenderer && typeof this.avatarRenderer.setEmotion === 'function') {
-            this.avatarRenderer.setEmotion(emotion, intensity);
-        }
-    }
-    
-    /**
-     * Affiche un message
-     */
-    showMessage(text) {
-        const messageText = document.getElementById('message-text');
-        const messageBubble = document.getElementById('message-bubble');
-        
-        if (messageText) messageText.textContent = text;
-        if (messageBubble) messageBubble.classList.remove('hidden');
-    }
-    
-    /**
-     * Masque le message
-     */
-    hideMessage() {
-        const messageBubble = document.getElementById('message-bubble');
-        if (messageBubble) messageBubble.classList.add('hidden');
-    }
-    
-    /**
-     * Contrôle l'indicateur de parole
-     */
-    setSpeakingIndicator(speaking) {
-        const indicator = document.getElementById('speaking-indicator');
-        if (indicator) {
-            indicator.style.display = speaking ? 'block' : 'none';
-        }
-    }
-    
-    /**
-     * Met à jour le statut
-     */
-    updateStatus(status) {
-        const statusElement = document.getElementById('avatar-status');
-        if (statusElement) {
-            statusElement.textContent = status;
-        }
-        console.log(`📊 Statut: ${status}`);
-    }
-    
-    /**
-     * Affiche le spinner de chargement
-     */
-    showLoadingSpinner() {
-        const spinner = document.getElementById('loading-spinner');
-        if (spinner) spinner.style.display = 'block';
-    }
-    
-    /**
-     * Masque le spinner de chargement
-     */
-    hideLoadingSpinner() {
-        const spinner = document.getElementById('loading-spinner');
-        if (spinner) spinner.style.display = 'none';
-    }
-    
-    /**
-     * Affiche l'avatar
-     */
-    showAvatar() {
-        const container = document.getElementById('avatar-container');
-        if (container) container.classList.add('visible');
-        
-        if (this.avatarRenderer && typeof this.avatarRenderer.setVisible === 'function') {
-            this.avatarRenderer.setVisible(true);
-        }
-    }
-    
-    /**
-     * Masque l'avatar
-     */
-    hideAvatar() {
-        const container = document.getElementById('avatar-container');
-        if (container) container.classList.remove('visible');
-        
-        if (this.avatarRenderer && typeof this.avatarRenderer.setVisible === 'function') {
-            this.avatarRenderer.setVisible(false);
-        }
-    }
-    
-    /**
-     * Nettoie les ressources
-     */
-	dispose() {
-	    if (this.avatarController && typeof this.avatarController.dispose === 'function') {
-	        this.avatarController.dispose();
-	    }
-	    
-	    if (this.avatarRenderer && typeof this.avatarRenderer.dispose === 'function') {
-	        this.avatarRenderer.dispose();
-	    }
-	    
-	    if (this.websocketManager && typeof this.websocketManager.disconnect === 'function') {
-	        this.websocketManager.disconnect();
-	    }
-	    
-	    // Nettoyer le container
-	    const container = document.getElementById('avatar-viewport');
-	    if (container) {
-	        const canvases = container.querySelectorAll('canvas');
-	        canvases.forEach(canvas => canvas.remove());
-	    }
-	    
-	    // Libérer l'instance singleton
-	    if (window.angelAppInstance === this) {
-	        window.angelAppInstance = null;
-	    }
-	    
-	    console.log('🧹 AngelAvatarApp nettoyé');
-	}
 }
 
-// Export pour utilisation globale
+// Export global
 window.AngelAvatarApp = AngelAvatarApp;
 
-// Initialisation automatique avec gestion d'erreurs améliorée
+// CORRECTION: Initialisation sécurisée
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('📄 DOM prêt, initialisation AngelAvatarApp...');
+    console.log('📄 DOM prêt, préparation initialisation...');
     
-    // Protection contre les initialisations multiples
+    // Forcer fermeture panneaux
+    const settings = document.getElementById('avatar-settings');
+    const overlay = document.getElementById('settings-overlay');
+    
+    if (settings) {
+        settings.classList.add('hidden');
+        settings.style.display = 'none';
+    }
+    if (overlay) {
+        overlay.classList.add('hidden');
+        overlay.style.display = 'none';
+    }
+    
+    // Protection contre initialisations multiples
     if (window.angelApp && window.angelApp.isInitialized) {
-        console.log('✅ AngelAvatarApp déjà initialisé');
+        console.log('✅ Déjà initialisé, arrêt');
         return;
     }
     
-    // Nettoyer toute instance précédente
+    // Nettoyer instance précédente
     if (window.angelApp && typeof window.angelApp.dispose === 'function') {
         window.angelApp.dispose();
     }
     
-    // Attendre que tous les scripts soient chargés
+    // CORRECTION: Attendre un peu plus pour les scripts
     setTimeout(() => {
         try {
+            console.log('🎭 Création AngelAvatarApp...');
             window.angelApp = new AngelAvatarApp();
+            
+            // Initialiser avec gestion d'erreur
             window.angelApp.init().catch(error => {
-                console.error('❌ Erreur critique lors de l\'initialisation:', error);
+                console.error('❌ Erreur fatale:', error);
             });
+            
         } catch (error) {
             console.error('❌ Erreur création AngelAvatarApp:', error);
         }
-    }, 100);
+    }, 200); // Un peu plus de délai
 });
 
-window.addEventListener('error', (event) => {
-    if (event.error && event.error.message && event.error.message.includes('canvas')) {
-        console.warn('⚠️ Erreur canvas détectée, tentative de récupération');
-        
-        // Essayer de redémarrer l'avatar
-        if (window.angelApp && !window.angelApp.isInitialized) {
-            setTimeout(() => {
-                window.angelApp.init().catch(console.error);
-            }, 1000);
-        }
-    }
-});
-
+// Nettoyage au déchargement
 window.addEventListener('beforeunload', () => {
     if (window.angelApp && typeof window.angelApp.dispose === 'function') {
         window.angelApp.dispose();
