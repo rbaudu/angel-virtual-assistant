@@ -6,33 +6,27 @@ Un assistant virtuel intelligent qui propose des activités en fonction de la d�
 
 Angel Virtual Assistant est un système conçu pour accompagner les personnes dans leur quotidien en proposant des activités adaptées à leur contexte actuel. Le système utilise la détection d'activités fournie par Angel-server-capture pour comprendre ce que fait la personne à un moment donné, puis propose des activités appropriées via un avatar visuel.
 
-## ⚡ Nouveautés v1.1.0
+## 🌐 Interface Web Intégrée
 
-### 🌐 Interface Web Intégrée (Nouveau !)
+L'application est dotée d'une interface web basée sur Spring Boot avec :
 
-**🎯 Accès web complet avec Spring Boot !**
-
-L'application est maintenant dotée d'une interface web complète avec :
-
-- 🖥️ **Dashboard de test interactif** : Interface complète de contrôle en mode test
+- 🖥️ **Dashboard de test interactif** : Interface de contrôle en mode test
 - 🎭 **Interface Avatar Web** : Avatar accessible via navigateur web
 - ⚙️ **Configuration centralisée** : Gestion unifiée des paramètres via fichiers `config/`
-- 🔧 **Serveur Spring Boot intégré** : Plus besoin de serveur externe pour l'interface
+- 🔧 **Serveur Spring Boot intégré** : gère l'interface
 - 📱 **Interface responsive** : Compatible desktop et mobile
 
-### 🎮 Mode Test Intégré
-
-**🎯 Développement et tests simplifiés !**
+## 🎮 Mode Test Intégré
 
 Le mode test permet de développer et tester l'assistant virtuel **sans dépendre du serveur dl4j-server-capture**. Il simule des activités en continu avec :
 
-- 🎮 **Interface de contrôle web** : Dashboard complet accessible via navigateur
+- 🎮 **Interface de contrôle web** : Dashboard accessible via navigateur
 - 🎭 **Scénarios personnalisables** : Routines matinales, journées chargées, activités aléatoires
 - ⚡ **Contrôle en temps réel** : Démarrage/arrêt, changement d'activité manuel
 - 📊 **Statistiques détaillées** : Monitoring et logs en direct
 - 🔄 **Basculement automatique** : Passe en mode test si le serveur principal est indisponible
 
-### Démarrage rapide
+## Démarrage
 
 ```bash
 # Cloner le projet
@@ -67,18 +61,6 @@ cd angel-virtual-assistant
 - **Historique intelligent** : Mémorisation des propositions pour éviter les répétitions
 - **Préférences utilisateur** : Système de préférences personnalisables
 
-### 🆕 Interface Web
-- **🌐 Dashboard de test interactif** : Interface complète pour le mode test
-- **🎭 Avatar Web** : Interface avatar accessible via navigateur
-- **📊 Monitoring en temps réel** : Statistiques et logs en direct
-- **⚙️ Configuration web** : Interface de configuration (à venir)
-- **📱 Interface responsive** : Compatible tous écrans
-
-### 🆕 Mode Test
-- **🎮 Simulation intégrée** : Test sans dépendances externes
-- **🎯 Scénarios personnalisables** : Routines et activités programmées
-- **⚡ Contrôle temps réel** : Start/stop, changement d'activité manuel
-- **📈 Analytics** : Statistiques d'usage et patterns
 
 ## URLs et Accès Web
 
@@ -163,9 +145,11 @@ L'architecture du système est modulaire et implémentée avec **Spring Boot** :
 
 4. **Module API** (`com.angel.api`)
    - `AngelServerClient.java` : Communication avec Angel-server-capture
+   - `AvatarApiController.java` : Contrôleur REST pour l'API Avatar
    - `TestActivityClient.java` : Client de simulation pour le mode test
    - `TestModeController.java` : API REST pour contrôle des tests
    - `dto/ActivityDTO.java` : Objets de transfert de données
+   - `dto/TestActivityDTO.java` : DTO spécifique au mode test pour représenter une activité simulée
 
 5. **🆕 Module Test** (`com.angel.test`)
    - `ActivitySimulator.java` : Simulateur d'activités
@@ -300,21 +284,12 @@ cd angel-virtual-assistant
 2. **🆕 Mettre à jour la configuration** :
    - Les fichiers `config/application.properties` et `config/application-test.properties` sont automatiquement mis à jour avec les propriétés Spring Boot nécessaires
 
-3. **🆕 Ajouter la dépendance Thymeleaf** dans `pom.xml` :
-```xml
-<dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-thymeleaf</artifactId>
-    <version>${spring-boot.version}</version>
-</dependency>
-```
-
-4. Compiler le projet :
+3. Compiler le projet :
 ```bash
 mvn clean package
 ```
 
-5. Exécuter l'application :
+4. Exécuter l'application :
 ```bash
 # Avec Spring Boot
 java -jar target/angel-virtual-assistant-1.0.0-SNAPSHOT.jar
@@ -385,6 +360,13 @@ Une fois démarré, accédez aux interfaces :
 # Avec mémoire personnalisée
 ./angel-launcher.sh start -p test -m 1g
 ```
+
+*Note :* la commande de démarrage en mode test est du type :
+
+```
+java -Xms256m -Xmx512m -Dspring.profiles.active=test -Dlogging.level.com.angel=TRACE -Dangel.test.enabled=true -Dangel.test.auto-start=true -Dangel.test.dashboard.enabled=true -jar /c/Users/rbaud/git/Angel/server-capture/angel-virtual-assistant/target/angel-virtual-assistant-1.0.0-SNAPSHOT.jar
+```
+
 
 #### Windows
 ```batch

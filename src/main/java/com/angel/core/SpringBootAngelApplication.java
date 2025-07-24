@@ -7,6 +7,8 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Point d'entrée principal pour l'application Angel Virtual Assistant avec Spring Boot.
@@ -33,14 +35,19 @@ public class SpringBootAngelApplication {
 @Component
 class AngelApplicationStarter {
     
-    @Autowired(required = false)
+    @Autowired
     private AngelApplication angelApplication;
     
     @EventListener(ApplicationReadyEvent.class)
     public void onApplicationReady() {
-        // Démarrer l'application Angel après que Spring Boot soit prêt
-        if (angelApplication != null) {
+        try {
+            LOGGER.log(Level.INFO, "Spring Boot prêt, démarrage d'Angel...");
             angelApplication.start();
+            LOGGER.log(Level.INFO, "Angel démarré avec succès via Spring Boot");
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Erreur lors du démarrage d'Angel", e);
+            throw new RuntimeException("Échec du démarrage d'Angel", e);
         }
-    }
+   }
+    private static final Logger LOGGER = Logger.getLogger(AngelApplicationStarter.class.getName());
 }

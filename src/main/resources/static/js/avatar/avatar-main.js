@@ -346,48 +346,96 @@ class AngelAvatarApp {
     }
     
     /**
-     * CORRECTION: Affichage des paramètres avec force
+     * Affichage des paramètres avec force
      */
-    showSettings() {
-        console.log('⚙️ Ouverture paramètres...');
-        
-        const settings = document.getElementById('avatar-settings');
-        const overlay = document.getElementById('settings-overlay');
-        
-        if (overlay) {
-            overlay.classList.remove('hidden');
-            overlay.style.display = 'flex';
-            overlay.style.opacity = '1';
-            overlay.style.visibility = 'visible';
-        }
-        
-        if (settings) {
-            settings.classList.remove('hidden');
-            settings.style.opacity = '1';
-            settings.style.visibility = 'visible';
-            settings.style.transform = 'translate(-50%, -50%) scale(1)';
-        }
-        
-        document.body.style.overflow = 'hidden';
-        
-        console.log('✅ Paramètres ouverts');
-    }
+	showSettings() {
+	    console.log('⚙️ Ouverture paramètres...');
+	    
+	    const settings = document.getElementById('avatar-settings');
+	    const overlay = document.getElementById('settings-overlay');
+	    
+	    if (overlay) {
+	        overlay.classList.remove('hidden');
+	        // FORCER les styles avec setProperty et 'important'
+	        overlay.style.setProperty('position', 'fixed', 'important');
+	        overlay.style.setProperty('top', '0', 'important');
+	        overlay.style.setProperty('left', '0', 'important');
+	        overlay.style.setProperty('width', '100vw', 'important');
+	        overlay.style.setProperty('height', '100vh', 'important');
+	        overlay.style.setProperty('background', 'rgba(0, 0, 0, 0.7)', 'important');
+	        overlay.style.setProperty('backdrop-filter', 'blur(5px)', 'important');
+	        overlay.style.setProperty('z-index', '1000', 'important');
+	        overlay.style.setProperty('display', 'flex', 'important');
+	        overlay.style.setProperty('justify-content', 'center', 'important');
+	        overlay.style.setProperty('align-items', 'center', 'important');
+	        overlay.style.setProperty('opacity', '1', 'important');
+	        overlay.style.setProperty('visibility', 'visible', 'important');
+	        overlay.style.setProperty('pointer-events', 'auto', 'important');
+	    }
+	    
+	    if (settings) {
+	        settings.classList.remove('hidden');
+	        // FORCER les styles avec setProperty et 'important'
+	        settings.style.setProperty('position', 'fixed', 'important');
+	        settings.style.setProperty('top', '50%', 'important');
+	        settings.style.setProperty('left', '50%', 'important');
+	        settings.style.setProperty('z-index', '1001', 'important');
+	        settings.style.setProperty('background', 'rgba(255, 255, 255, 0.95)', 'important');
+	        settings.style.setProperty('backdrop-filter', 'blur(20px)', 'important');
+	        settings.style.setProperty('border-radius', '20px', 'important');
+	        settings.style.setProperty('padding', '30px', 'important');
+	        settings.style.setProperty('max-width', '500px', 'important');
+	        settings.style.setProperty('width', '90%', 'important');
+	        settings.style.setProperty('max-height', '80vh', 'important');
+	        settings.style.setProperty('overflow-y', 'auto', 'important');
+	        settings.style.setProperty('box-shadow', '0 20px 60px rgba(0, 0, 0, 0.3)', 'important');
+	        settings.style.setProperty('border', '1px solid rgba(255, 255, 255, 0.3)', 'important');
+	        settings.style.setProperty('transform', 'translate(-50%, -50%) scale(1)', 'important');
+	        settings.style.setProperty('transition', 'all 0.3s ease', 'important');
+	        settings.style.setProperty('opacity', '1', 'important');
+	        settings.style.setProperty('visibility', 'visible', 'important');
+	        settings.style.setProperty('pointer-events', 'auto', 'important');
+	        settings.style.setProperty('display', 'block', 'important');
+	    }
+	    
+	    // Empêcher le scroll du body
+	    document.body.style.overflow = 'hidden';
+	    
+	    console.log('✅ Paramètres ouverts avec styles forcés');
+	}
     
-    hideSettings() {
-        console.log('❌ Fermeture paramètres...');
-        
-        const settings = document.getElementById('avatar-settings');
-        const overlay = document.getElementById('settings-overlay');
-        
-        if (settings) {
-            settings.classList.add('hidden');
-        }
-        if (overlay) {
-            overlay.classList.add('hidden');
-        }
-        
-        document.body.style.overflow = '';
-    }
+	hideSettings() {
+	    console.log('❌ Fermeture paramètres...');
+	    
+	    const settings = document.getElementById('avatar-settings');
+	    const overlay = document.getElementById('settings-overlay');
+	    
+	    if (settings) {
+	        // Animation de fermeture
+	        settings.style.setProperty('transform', 'translate(-50%, -50%) scale(0.9)', 'important');
+	        settings.style.setProperty('opacity', '0', 'important');
+	        
+	        setTimeout(() => {
+	            settings.classList.add('hidden');
+	            settings.style.setProperty('display', 'none', 'important');
+	        }, 300);
+	    }
+	    
+	    if (overlay) {
+	        // Animation de fermeture
+	        overlay.style.setProperty('opacity', '0', 'important');
+	        
+	        setTimeout(() => {
+	            overlay.classList.add('hidden');
+	            overlay.style.setProperty('display', 'none', 'important');
+	        }, 300);
+	    }
+	    
+	    // Restaurer le scroll du body
+	    document.body.style.overflow = '';
+	    
+	    console.log('✅ Paramètres fermés');
+	}
     
     async applySettings() {
         console.log('⚙️ Application paramètres...');

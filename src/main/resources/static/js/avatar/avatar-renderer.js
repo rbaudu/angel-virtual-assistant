@@ -303,33 +303,45 @@ class AvatarRenderer {
     /**
      * Positionne la caméra pour voir l'avatar
      */
-    focusCameraOnAvatar() {
-        if (!this.avatarModel) return;
-        
-        // Calculer la bounding box
-        const box = new THREE.Box3().setFromObject(this.avatarModel);
-        const size = box.getSize(new THREE.Vector3());
-        const center = box.getCenter(new THREE.Vector3());
-        
-        // Ajuster position Y pour poser l'avatar au sol
-        this.avatarModel.position.y = -box.min.y;
-        
-        // Repositionner la caméra
-        const maxDim = Math.max(size.x, size.y, size.z);
-        const cameraDistance = maxDim * 3;
-        
-        this.camera.position.set(0, size.y * 0.6, cameraDistance);
-        this.camera.lookAt(0, size.y * 0.5, 0);
-        
-        // Mettre à jour les contrôles si ils existent
-        if (this.controls) {
-            this.controls.target.set(0, size.y * 0.5, 0);
-            this.controls.update();
-        }
-        
-        console.log('📷 Caméra repositionnée pour l\'avatar');
-    }
-    
+	focusCameraOnAvatar() {
+	    if (!this.avatarModel) return;
+	    
+	    // Calculer la bounding box
+	    const box = new THREE.Box3().setFromObject(this.avatarModel);
+	    const size = box.getSize(new THREE.Vector3());
+	    const center = box.getCenter(new THREE.Vector3());
+	    
+	    // 	Pour la taille de l'avatar (setScalar) :
+		//		1.0 = Taille normale
+		//		1.2 = 20% plus grand (subtil)
+		//		1.3 = 30% plus grand (recommandé)
+		//		1.5 = 50% plus grand (très grand)
+		//		1.8 = 80% plus grand (énorme) :
+	    this.avatarModel.scale.setScalar(1.3);
+	    
+	    // Ajuster position Y pour poser l'avatar au sol
+	    this.avatarModel.position.y = -box.min.y;
+	    
+	    // Repositionner la caméra
+	    const maxDim = Math.max(size.x, size.y, size.z);
+		// Pour la distance caméra (cameraDistance) :
+		//	3.0 = Distance normale (loin)
+		//	2.5 = Plus proche
+		//	2.0 = Beaucoup plus proche (recommandé)
+		//	1.5 = Très proche (peut couper l'avatar)
+	    const cameraDistance = maxDim * 2.0; 
+	    
+	    this.camera.position.set(0, size.y * 0.6, cameraDistance);
+	    this.camera.lookAt(0, size.y * 0.5, 0);
+	    
+	    // Mettre à jour les contrôles si ils existent
+	    if (this.controls) {
+	        this.controls.target.set(0, size.y * 0.5, 0);
+	        this.controls.update();
+	    }
+	    
+	    console.log('📷 Caméra repositionnée pour l\'avatar');
+	}    
     /**
      * Joue une animation
      */

@@ -22,68 +22,86 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
+import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 /**
  * Classe principale de l'application Angel qui orchestre tous les composants.
  */
+@Component
+@Lazy
 public class AngelApplication {
 
     private static final Logger LOGGER = LogUtil.getLogger(AngelApplication.class);
     
-    private final ConfigManager configManager;
-    private final AngelServerClient apiClient;
-    private final ProposalEngine proposalEngine;
-    private final AvatarController avatarController;
-    private final WakeWordDetector wakeWordDetector;
-    private final DatabaseManager databaseManager;
-    private final ProposalDAO proposalDAO;
-    private final UserPreferenceDAO userPreferenceDAO;
-    private final ScheduledExecutorService scheduler;
+    @Autowired
+    private ConfigManager configManager;
+    
+    private AngelServerClient apiClient;
+    private ProposalEngine proposalEngine;
+    private AvatarController avatarController;
+    private WakeWordDetector wakeWordDetector;
+    private DatabaseManager databaseManager;
+    private ProposalDAO proposalDAO;
+    private UserPreferenceDAO userPreferenceDAO;
+    private ScheduledExecutorService scheduler;
     
     private Activity lastActivity = Activity.UNKNOWN;
     private final Map<LocalDateTime, Activity> activityHistory = new HashMap<>();
     private UserProfile userProfile;
     private boolean isRunning = false;
     
+    public AngelApplication() {
+        // Constructeur vide pour Spring
+    }
+
     /**
      * Constructeur principal qui initialise tous les composants.
      */
-    public AngelApplication() {
-        // Initialiser le gestionnaire de configuration
-        this.configManager = new ConfigManager();
-        
-        // Initialiser le gestionnaire de base de données
-        this.databaseManager = new DatabaseManager(configManager);
-        
-        // Initialiser les DAOs
-        this.proposalDAO = new ProposalDAO(databaseManager);
-        this.userPreferenceDAO = new UserPreferenceDAO(databaseManager);
-        
-        // Initialiser le client API
-        this.apiClient = new AngelServerClient(configManager);
-        
-        // Charger le profil utilisateur
-        this.userProfile = loadUserProfile();
-        
-        // Créer toutes les propositions disponibles
-        List<Proposal> availableProposals = createAvailableProposals();
-        
-        // Initialiser le moteur de propositions
-        this.proposalEngine = new ProposalEngine(configManager, proposalDAO, availableProposals);
-        
-        // Initialiser le contrôleur d'avatar
-        TextToSpeechService ttsService = new TextToSpeechService(configManager);
-        WebSocketService webSocketService = new WebSocketService();
-        EmotionAnalyzer emotionAnalyzer = new EmotionAnalyzer();
-        AvatarManager avatarManager = new AvatarManager(configManager,ttsService,
-                 webSocketService,emotionAnalyzer);
-        this.avatarController = new AvatarController(configManager,avatarManager);
-        
-        // Initialiser le détecteur de mot-clé
-        this.wakeWordDetector = new WakeWordDetector(configManager);
-        
-        // Initialiser le scheduler pour les tâches périodiques
-        this.scheduler = Executors.newScheduledThreadPool(2);
+    @PostConstruct
+    public void initialize() {
+        LOGGER.log(Level.INFO, "Initialisation des composants Angel...");
+        try {
+	         // Initialiser le gestionnaire de base de données
+	        this.databaseManager = new DatabaseManager(configManager);
+	        
+	        // Initialiser les DAOs
+	        this.proposalDAO = new ProposalDAO(databaseManager);
+	        this.userPreferenceDAO = new UserPreferenceDAO(databaseManager);
+	        
+	        // Initialiser le client API
+	        this.apiClient = new AngelServerClient(configManager);
+	        
+	        // Charger le profil utilisateur
+	        this.userProfile = loadUserProfile();
+	        
+	        // Créer toutes les propositions disponibles
+	        List<Proposal> availableProposals = createAvailableProposals();
+	        
+	        // Initialiser le moteur de propositions
+	        this.proposalEngine = new ProposalEngine(configManager, proposalDAO, availableProposals);
+	        
+	        // Initialiser le contrôleur d'avatar
+	        TextToSpeechService ttsService = new TextToSpeechService(configManager);
+	        WebSocketService webSocketService = new WebSocketService();
+	        EmotionAnalyzer emotionAnalyzer = new EmotionAnalyzer();
+	        AvatarManager avatarManager = new AvatarManager(configManager,ttsService,
+	                 webSocketService,emotionAnalyzer);
+	        this.avatarController = new AvatarController(configManager,avatarManager);
+	        
+	        // Initialiser le détecteur de mot-clé
+	        this.wakeWordDetector = new WakeWordDetector(configManager);
+	        
+	        // Initialiser le scheduler pour les tâches périodiques
+	        this.scheduler = Executors.newScheduledThreadPool(2);
+	        LOGGER.log(Level.INFO, "Composants Angel initialisés avec succès");
+	        
+	    } catch (Exception e) {
+	        LOGGER.log(Level.SEVERE, "Erreur lors de l'initialisation des composants Angel", e);
+	        throw new RuntimeException("Échec de l'initialisation d'Angel", e);
+	    }
     }
     
     /**
@@ -96,7 +114,12 @@ public class AngelApplication {
         }
         
         LOGGER.log(Level.INFO, "Démarrage de l'application Angel...");
-        
+
+        // Vérifier que l'initialisation a eu lieu
+        if (configManager == null) {
+            throw new IllegalStateException("AngelApplication n'a pas été correctement initialisé par Spring");
+        }
+       
         // Vérifier la connexion au serveur Angel-capture
         if (!apiClient.isServerAvailable()) {
             LOGGER.log(Level.WARNING, "Impossible de se connecter au serveur Angel-capture");
@@ -124,12 +147,13 @@ public class AngelApplication {
         wakeWordDetector.startListening(unused -> handleWakeWord());
         
         isRunning = true;
-        LOGGER.log(Level.INFO, "Application Angel démarrée");
+        LOGGER.log(Level.INFO, "Application Angel démarrée avec succès");
     }
     
     /**
      * Arrête l'application et libère les ressources.
      */
+    @PreDestroy
     public void stop() {
         if (!isRunning) {
             return;
@@ -138,19 +162,25 @@ public class AngelApplication {
         LOGGER.log(Level.INFO, "Arrêt de l'application Angel...");
         
         // Arrêter le scheduler
-        scheduler.shutdown();
-        try {
-            scheduler.awaitTermination(5, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            LOGGER.log(Level.WARNING, "Interruption lors de l'arrêt du scheduler", e);
+        if (scheduler != null) {
+	        scheduler.shutdown();
+	        try {
+	            scheduler.awaitTermination(5, TimeUnit.SECONDS);
+	        } catch (InterruptedException e) {
+	            Thread.currentThread().interrupt();
+	            LOGGER.log(Level.WARNING, "Interruption lors de l'arrêt du scheduler", e);
+	        }
         }
         
         // Arrêter l'écoute du mot-clé
-        wakeWordDetector.shutdown();
+        if (wakeWordDetector != null) {
+        	wakeWordDetector.shutdown();
+        }
         
         // Fermer la connexion à la base de données
-        databaseManager.closeConnection();
+        if (databaseManager != null) {
+        	databaseManager.closeConnection();
+        }
         
         isRunning = false;
         LOGGER.log(Level.INFO, "Application Angel arrêtée");
@@ -160,6 +190,7 @@ public class AngelApplication {
      * Récupère l'activité courante depuis le serveur Angel-capture.
      */
     private void pollCurrentActivity() {
+        LOGGER.log(Level.INFO, "Poll current activitiy...");
         try {
             apiClient.getCurrentActivity()
                 .thenAccept(activity -> {
@@ -189,6 +220,7 @@ public class AngelApplication {
      * Vérifie s'il faut faire une proposition à l'utilisateur.
      */
     private void checkForProposals() {
+        LOGGER.log(Level.INFO, "Check for proposals, last activity being ='"+lastActivity+"' ...");
         if (lastActivity == Activity.UNKNOWN || !lastActivity.allowsProposals()) {
             return; // Ne pas faire de proposition si l'activité n'est pas reconnue ou ne le permet pas
         }
@@ -278,28 +310,4 @@ public class AngelApplication {
         return proposals;
     }
     
-    /**
-     * Point d'entrée principal de l'application.
-     * 
-     * @param args Arguments de ligne de commande
-     */
-    public static void main(String[] args) {
-        // Configurer le système de logging
-        LogUtil.configureLogging();
-        
-        // Démarrer l'application
-        AngelApplication app = new AngelApplication();
-        app.start();
-        
-        // Ajouter un hook d'arrêt pour nettoyer proprement
-        Runtime.getRuntime().addShutdownHook(new Thread(app::stop));
-        
-        // Garder l'application en vie
-        try {
-            Thread.currentThread().join();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            LOGGER.log(Level.WARNING, "Interruption du thread principal", e);
-        }
-    }
 }
