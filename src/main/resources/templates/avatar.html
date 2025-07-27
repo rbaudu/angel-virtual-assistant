@@ -7,6 +7,7 @@
     
     <!-- Styles extraits dans un fichier CSS séparé -->
     <link rel="stylesheet" th:href="@{/css/avatar.css}">
+	<link rel="stylesheet" th:href="@{/css/wake-word-detector.css}">
 	<link rel="icon" type="image/x-icon" th:href="@{/assets/images/favicon.ico}">
 	<link rel="shortcut icon" type="image/x-icon" th:href="@{/assets/images/favicon.ico}">
     
@@ -42,6 +43,80 @@
         </div>
     </div>
 
+	<!-- Interface vocale -->
+	<div class="voice-interface">
+	    <!-- Indicateur d'écoute -->
+	    <div id="listening-indicator" class="idle" title="État de reconnaissance vocale">
+	        🎤
+	    </div>
+	    
+	    <!-- Contrôles vocaux -->
+	    <div class="voice-controls">
+	        <button id="start-listening" class="voice-control-btn start" title="Démarrer l'écoute">
+	            ▶️
+	        </button>
+	        <button id="stop-listening" class="voice-control-btn stop" title="Arrêter l'écoute">
+	            ⏹️
+	        </button>
+	        <button id="voice-settings" class="voice-control-btn settings" title="Paramètres vocaux">
+	            ⚙️
+	        </button>
+	    </div>
+	    
+	    <!-- Panneau de configuration vocale -->
+	    <div id="voice-settings-panel" class="voice-settings-panel">
+	        <button class="close-settings" id="close-settings">×</button>
+	        <h3>Paramètres de reconnaissance vocale</h3>
+	        
+	        <div class="voice-setting">
+	            <label for="wake-word-input">Mot-clé :</label>
+	            <input type="text" id="wake-word-input" value="Angel" />
+	        </div>
+	        
+	        <div class="voice-setting">
+	            <label for="language-select">Langue :</label>
+	            <select id="language-select">
+	                <option value="fr-FR">Français</option>
+	                <option value="en-US">English (US)</option>
+	                <option value="en-GB">English (UK)</option>
+	                <option value="es-ES">Español</option>
+	                <option value="de-DE">Deutsch</option>
+	            </select>
+	        </div>
+	        
+	        <div class="voice-setting">
+	            <label for="confidence-slider">Seuil de confiance : <span id="confidence-value">0.7</span></label>
+	            <input type="range" id="confidence-slider" min="0.1" max="1.0" step="0.1" value="0.7" />
+	        </div>
+	        
+	        <div class="voice-setting">
+	            <label>
+	                <input type="checkbox" id="continuous-listening" checked />
+	                Écoute continue
+	            </label>
+	        </div>
+	        
+	        <div class="voice-setting">
+	            <label>
+	                <input type="checkbox" id="debug-mode" />
+	                Mode debug
+	            </label>
+	        </div>
+	    </div>
+	    
+	    <!-- Statut de reconnaissance vocale -->
+	    <div id="speech-status" class="speech-status">
+	        Initialisation...
+	    </div>
+	</div>
+
+	<!-- Message d'avertissement navigateur -->
+	<div id="browser-warning" class="browser-warning">
+	    <h4>⚠️ Navigateur non compatible</h4>
+	    <p>Votre navigateur ne supporte pas la reconnaissance vocale. Veuillez utiliser Chrome, Edge ou Safari.</p>
+	    <button onclick="this.parentElement.style.display='none'">Fermer</button>
+	</div>
+	
     <!-- Overlay pour les paramètres -->
     <div id="settings-overlay"></div>
 
@@ -190,6 +265,10 @@
             onerror="console.error('❌ Erreur chargement ready-player-me.js')"></script>
 	<script th:src="@{/js/avatar/avatar-debug.js}"
 			onerror="console.error('❌ Erreur chargement avatar-debug.js')"></script>
+		<script th:src="@{/js/speech-recognition.js}" 
+		        onerror="console.error('❌ Erreur chargement speech-recognition.js')"></script>
+		<script th:src="@{/js/wake-word-detector.js}" 
+		        onerror="console.error('❌ Erreur chargement wake-word-detector.js')"></script>
     
     <!-- Script principal - AngelAvatarApp -->
     <script th:src="@{/js/avatar/avatar-main.js}" 
@@ -314,5 +393,170 @@
             return status;
         };
     </script>
+	
+	<!-- Initialisation de la reconnaissance vocale -->
+	<script type="text/javascript">
+	// Variables globales pour la reconnaissance vocale
+	let wakeWordDetector = null;
+
+	// Fonction pour initialiser la reconnaissance vocale
+	async function initializeVoiceRecognition() {
+	    console.log('🎤 Initialisation de la reconnaissance vocale...');
+	    
+	    if (!checkBrowserCompatibility()) {
+	        showBrowserWarning();
+	        return false;
+	    }
+	    
+	    try {
+	        wakeWordDetector = new WakeWordDetector();
+	        
+	        // Attendre que l'initialisation soit terminée
+	        await wakeWordDetector.initialize();
+	        
+	        console.log('✅ Détecteur de mot-clé prêt');
+	        setupVoiceControls();
+	        
+	        return true;
+	    } catch (error) {
+	        console.error('❌ Erreur initialisation reconnaissance vocale:', error);
+	        return false;
+	    }
+	}
+	
+	// Vérification de compatibilité navigateur
+	function checkBrowserCompatibility() {
+	    const hasWebSocket = 'WebSocket' in window;
+	    const hasSpeechRecognition = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
+	    const hasMediaDevices = 'mediaDevices' in navigator && 'getUserMedia' in navigator.mediaDevices;
+	    
+	    console.log('🔍 Compatibilité:', {
+	        webSocket: hasWebSocket,
+	        speechRecognition: hasSpeechRecognition,
+	        mediaDevices: hasMediaDevices
+	    });
+	    
+	    return hasWebSocket && hasSpeechRecognition && hasMediaDevices;
+	}
+
+	// Affichage avertissement compatibilité
+	function showBrowserWarning() {
+	    const warning = document.getElementById('browser-warning');
+	    if (warning) {
+	        warning.style.display = 'block';
+	    }
+	}
+
+	// Configuration des contrôles vocaux
+	function setupVoiceControls() {
+	    // Bouton démarrer
+	    const startBtn = document.getElementById('start-listening');
+	    if (startBtn) {
+	        startBtn.addEventListener('click', () => {
+	            if (wakeWordDetector) {
+	                wakeWordDetector.startListening();
+	            }
+	        });
+	    }
+	    
+	    // Bouton arrêter
+	    const stopBtn = document.getElementById('stop-listening');
+	    if (stopBtn) {
+	        stopBtn.addEventListener('click', () => {
+	            if (wakeWordDetector) {
+	                wakeWordDetector.stopListening();
+	            }
+	        });
+	    }
+	    
+	    // Bouton paramètres
+	    const settingsBtn = document.getElementById('voice-settings');
+	    if (settingsBtn) {
+	        settingsBtn.addEventListener('click', () => {
+	            const panel = document.getElementById('voice-settings-panel');
+	            if (panel) {
+	                panel.classList.toggle('open');
+	            }
+	        });
+	    }
+	    
+	    // Fermer paramètres
+	    const closeBtn = document.getElementById('close-settings');
+	    if (closeBtn) {
+	        closeBtn.addEventListener('click', () => {
+	            const panel = document.getElementById('voice-settings-panel');
+	            if (panel) {
+	                panel.classList.remove('open');
+	            }
+	        });
+	    }
+	    
+	    // Slider confiance
+	    const slider = document.getElementById('confidence-slider');
+	    const valueSpan = document.getElementById('confidence-value');
+	    if (slider && valueSpan) {
+	        slider.addEventListener('input', (e) => {
+	            valueSpan.textContent = e.target.value;
+	            updateVoiceConfig();
+	        });
+	    }
+	    
+	    // Autres contrôles
+	    ['wake-word-input', 'language-select', 'continuous-listening', 'debug-mode'].forEach(id => {
+	        const element = document.getElementById(id);
+	        if (element) {
+	            element.addEventListener('change', updateVoiceConfig);
+	        }
+	    });
+	}
+
+	// Mise à jour configuration vocale
+	function updateVoiceConfig() {
+	    if (!wakeWordDetector || !wakeWordDetector.speechService) return;
+	    
+	    const config = {
+	        wakeWord: document.getElementById('wake-word-input')?.value || 'Angel',
+	        language: document.getElementById('language-select')?.value || 'fr-FR',
+	        confidenceThreshold: parseFloat(document.getElementById('confidence-slider')?.value || '0.7'),
+	        continuous: document.getElementById('continuous-listening')?.checked !== false
+	    };
+	    
+	    wakeWordDetector.speechService.updateConfig(config);
+	    console.log('🔧 Configuration vocale mise à jour:', config);
+	}
+
+	// Fonction de nettoyage
+	function cleanupVoiceRecognition() {
+	    if (wakeWordDetector) {
+	        wakeWordDetector.destroy();
+	        wakeWordDetector = null;
+	    }
+	}
+
+	// Extension de l'API AngelAvatar
+	window.AngelAvatar.voice = {
+	    start: () => wakeWordDetector?.startListening(),
+	    stop: () => wakeWordDetector?.stopListening(),
+	    getStatus: () => wakeWordDetector?.getStatus(),
+	    isSupported: () => checkBrowserCompatibility()
+	};
+
+	// Initialisation au chargement de la page
+	document.addEventListener('DOMContentLoaded', function() {
+	    console.log('📄 DOM chargé, initialisation reconnaissance vocale...');
+	    
+	    // Attendre un peu que tout soit chargé
+	    setTimeout(() => {
+	        initializeVoiceRecognition();
+	    }, 1000);
+	});
+
+	// Nettoyage à la fermeture
+	window.addEventListener('beforeunload', () => {
+	    cleanupVoiceRecognition();
+	});
+
+	console.log('🎭 Extensions vocales ajoutées à avatar.html');
+	</script>
 </body>
 </html>
