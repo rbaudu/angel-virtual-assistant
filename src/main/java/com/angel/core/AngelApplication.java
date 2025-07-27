@@ -15,6 +15,8 @@ import com.angel.persistence.dao.ProposalDAO;
 import com.angel.persistence.dao.UserPreferenceDAO;
 import com.angel.ui.AvatarController;
 import com.angel.util.LogUtil;
+import com.angel.voice.VoiceQuestionContext;
+import com.angel.voice.VoiceQuestionProcessor;
 import com.angel.voice.WakeWordDetector;
 
 import java.time.LocalDateTime;
@@ -38,7 +40,10 @@ public class AngelApplication {
     
     @Autowired
     private ConfigManager configManager;
-    
+ // Injection du processeur de questions
+    @Autowired
+    private VoiceQuestionProcessor voiceQuestionProcessor;
+
     private AngelServerClient apiClient;
     private ProposalEngine proposalEngine;
     private AvatarController avatarController;
@@ -251,10 +256,13 @@ public class AngelApplication {
      */
     private void handleWakeWord() {
         LOGGER.log(Level.INFO, "Mot-clé détecté, activation du système");
-        
-        // Afficher un message de confirmation via l'avatar
+ 
+        // Générer le message d'activation personnalisé
+        String activationMessage = voiceQuestionProcessor.generateActivationMessage();
+
+        // Afficher un message de confirmation via l'avatar et le faire parler
         avatarController.displayMessage(
-            "Oui, comment puis-je vous aider ?",
+        	activationMessage,
             "attentive",
             5000
         ).thenRun(() -> {
@@ -309,5 +317,43 @@ public class AngelApplication {
         
         return proposals;
     }
-    
+
+    /**
+     * Traite une question vocale de l'utilisateur.
+     * Délègue le traitement au processeur spécialisé.
+     * 
+     * @param question La question posée par l'utilisateur
+     * @param confidence Niveau de confiance de la reconnaissance
+     * @return CompletableFuture avec la réponse
+     */
+    public CompletableFuture<String> processUserQuestion(String question, float confidence) {
+        LOGGER.log(Level.INFO, "Délégation question au VoiceQuestionProcessor: {0}", question);
+        
+        // Créer le contexte pour la question
+        VoiceQuestionContext context = new VoiceQuestionContext(
+            getUserProfile(),
+            getLastActivity(), 
+            getActivityHistory(),
+            "angel-session-" + System.currentTimeMillis(),
+            confidence
+        );
+        
+        // Déléguer au processeur spécialisé
+        return voiceQuestionProcessor.processQuestion(question, confidence, context);
+    }
+
+    /**
+     * Getters pour exposer les données contextuelles (pas de changement).
+     */
+    public UserProfile getUserProfile() {
+        return userProfile;
+    }
+
+    public Activity getLastActivity() {
+        return lastActivity;
+    }
+
+    public Map<LocalDateTime, Activity> getActivityHistory() {
+        return new HashMap<>(activityHistory); // Copie défensive
+    }
 }

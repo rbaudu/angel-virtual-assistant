@@ -311,7 +311,32 @@ public class ConfigManager {
             return defaultValue;
         }
     }
-    
+
+    /**
+     * Obtient une valeur de configuration sous forme de float (sans valeur par défaut).
+     */
+	public Float getFloat(String key) {
+        String value = mergedConfig.getProperty(key);
+        try {
+            return value != null ? Float.parseFloat(value) : null;
+        } catch (NumberFormatException e) {
+            LOGGER.log(Level.WARNING, "Valeur float invalide pour la clé ''{0}'': {1}", new Object[]{key, value});
+            return null;
+        }
+	}
+    /**
+     * Obtient une valeur de configuration sous forme de float.
+     */
+    public float getFloat(String key, float defaultValue) {
+        String value = mergedConfig.getProperty(key);
+        try {
+            return value != null ? Float.parseFloat(value) : defaultValue;
+        } catch (NumberFormatException e) {
+            LOGGER.log(Level.WARNING, "Valeur invalide pour la clé ''{0}'': {1}", new Object[]{key, value});
+            return defaultValue;
+        }
+    }
+
     /**
      * Obtient une liste d'entiers à partir d'une chaîne séparée par des virgules.
      */
@@ -474,4 +499,5 @@ public class ConfigManager {
         
         return sources;
     }
+
 }
