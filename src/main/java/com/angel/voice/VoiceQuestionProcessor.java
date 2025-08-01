@@ -35,9 +35,6 @@ public class VoiceQuestionProcessor {
     @Autowired
     private AvatarController avatarController;
     
-    @Autowired
-    private ProposalEngine proposalEngine;
-    
     /**
      * Génère le message d'activation personnalisé.
      * 

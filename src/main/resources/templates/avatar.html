@@ -265,11 +265,12 @@
             onerror="console.error('❌ Erreur chargement ready-player-me.js')"></script>
 	<script th:src="@{/js/avatar/avatar-debug.js}"
 			onerror="console.error('❌ Erreur chargement avatar-debug.js')"></script>
-		<script th:src="@{/js/speech-recognition.js}" 
+	<script th:src="@{/js/speech-recognition.js}" 
 		        onerror="console.error('❌ Erreur chargement speech-recognition.js')"></script>
-		<script th:src="@{/js/wake-word-detector.js}" 
+	<script th:src="@{/js/wake-word-detector.js}" 
 		        onerror="console.error('❌ Erreur chargement wake-word-detector.js')"></script>
-    
+	<script src="/js/avatar-speech-integration.js"
+				onerror="console.error('❌ Erreur chargement avatar-speech-integration.js')"></script>   
     <!-- Script principal - AngelAvatarApp -->
     <script th:src="@{/js/avatar/avatar-main.js}" 
             onerror="console.error('❌ Erreur chargement avatar-main.js')"></script>

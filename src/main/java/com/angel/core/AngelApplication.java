@@ -29,6 +29,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+
 /**
  * Classe principale de l'application Angel qui orchestre tous les composants.
  */
@@ -40,9 +41,14 @@ public class AngelApplication {
     
     @Autowired
     private ConfigManager configManager;
- // Injection du processeur de questions
+    
+    // Injection du processeur de questions
     @Autowired
     private VoiceQuestionProcessor voiceQuestionProcessor;
+    
+    // Injection des services avatar via Spring
+    @Autowired
+    private WebSocketService webSocketService;
 
     private AngelServerClient apiClient;
     private ProposalEngine proposalEngine;
@@ -69,44 +75,45 @@ public class AngelApplication {
     public void initialize() {
         LOGGER.log(Level.INFO, "Initialisation des composants Angel...");
         try {
-	         // Initialiser le gestionnaire de base de données
-	        this.databaseManager = new DatabaseManager(configManager);
-	        
-	        // Initialiser les DAOs
-	        this.proposalDAO = new ProposalDAO(databaseManager);
-	        this.userPreferenceDAO = new UserPreferenceDAO(databaseManager);
-	        
-	        // Initialiser le client API
-	        this.apiClient = new AngelServerClient(configManager);
-	        
-	        // Charger le profil utilisateur
-	        this.userProfile = loadUserProfile();
-	        
-	        // Créer toutes les propositions disponibles
-	        List<Proposal> availableProposals = createAvailableProposals();
-	        
-	        // Initialiser le moteur de propositions
-	        this.proposalEngine = new ProposalEngine(configManager, proposalDAO, availableProposals);
-	        
-	        // Initialiser le contrôleur d'avatar
-	        TextToSpeechService ttsService = new TextToSpeechService(configManager);
-	        WebSocketService webSocketService = new WebSocketService();
-	        EmotionAnalyzer emotionAnalyzer = new EmotionAnalyzer();
-	        AvatarManager avatarManager = new AvatarManager(configManager,ttsService,
-	                 webSocketService,emotionAnalyzer);
-	        this.avatarController = new AvatarController(configManager,avatarManager);
-	        
-	        // Initialiser le détecteur de mot-clé
-	        this.wakeWordDetector = new WakeWordDetector(configManager);
-	        
-	        // Initialiser le scheduler pour les tâches périodiques
-	        this.scheduler = Executors.newScheduledThreadPool(2);
-	        LOGGER.log(Level.INFO, "Composants Angel initialisés avec succès");
-	        
-	    } catch (Exception e) {
-	        LOGGER.log(Level.SEVERE, "Erreur lors de l'initialisation des composants Angel", e);
-	        throw new RuntimeException("Échec de l'initialisation d'Angel", e);
-	    }
+            // Initialiser le gestionnaire de base de données
+            this.databaseManager = new DatabaseManager(configManager);
+            
+            // Initialiser les DAOs
+            this.proposalDAO = new ProposalDAO(databaseManager);
+            this.userPreferenceDAO = new UserPreferenceDAO(databaseManager);
+            
+            // Initialiser le client API
+            this.apiClient = new AngelServerClient(configManager);
+            
+            // Charger le profil utilisateur
+            this.userProfile = loadUserProfile();
+            
+            // Créer toutes les propositions disponibles
+            List<Proposal> availableProposals = createAvailableProposals();
+            
+            // Initialiser le moteur de propositions
+            this.proposalEngine = new ProposalEngine(configManager, proposalDAO, availableProposals);
+            
+            // Initialiser les services avatar
+            TextToSpeechService ttsService = new TextToSpeechService(configManager);
+            EmotionAnalyzer emotionAnalyzer = new EmotionAnalyzer();
+            AvatarManager avatarManager = new AvatarManager(configManager, ttsService,
+                     webSocketService, emotionAnalyzer);
+            
+            // Initialiser le contrôleur d'avatar avec tous les paramètres requis
+            this.avatarController = new AvatarController(configManager, avatarManager, webSocketService);
+            
+            // Initialiser le détecteur de mot-clé
+            this.wakeWordDetector = new WakeWordDetector(configManager);
+            
+            // Initialiser le scheduler pour les tâches périodiques
+            this.scheduler = Executors.newScheduledThreadPool(2);
+            LOGGER.log(Level.INFO, "Composants Angel initialisés avec succès");
+            
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Erreur lors de l'initialisation des composants Angel", e);
+            throw new RuntimeException("Échec de l'initialisation d'Angel", e);
+        }
     }
     
     /**
@@ -168,23 +175,23 @@ public class AngelApplication {
         
         // Arrêter le scheduler
         if (scheduler != null) {
-	        scheduler.shutdown();
-	        try {
-	            scheduler.awaitTermination(5, TimeUnit.SECONDS);
-	        } catch (InterruptedException e) {
-	            Thread.currentThread().interrupt();
-	            LOGGER.log(Level.WARNING, "Interruption lors de l'arrêt du scheduler", e);
-	        }
+            scheduler.shutdown();
+            try {
+                scheduler.awaitTermination(5, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                LOGGER.log(Level.WARNING, "Interruption lors de l'arrêt du scheduler", e);
+            }
         }
         
         // Arrêter l'écoute du mot-clé
         if (wakeWordDetector != null) {
-        	wakeWordDetector.shutdown();
+            wakeWordDetector.shutdown();
         }
         
         // Fermer la connexion à la base de données
         if (databaseManager != null) {
-        	databaseManager.closeConnection();
+            databaseManager.closeConnection();
         }
         
         isRunning = false;
@@ -262,7 +269,7 @@ public class AngelApplication {
 
         // Afficher un message de confirmation via l'avatar et le faire parler
         avatarController.displayMessage(
-        	activationMessage,
+            activationMessage,
             "attentive",
             5000
         ).thenRun(() -> {

@@ -1,296 +1,305 @@
 package com.angel.ui;
 
+import com.angel.avatar.AvatarConfig;
 import com.angel.avatar.AvatarManager;
+import com.angel.avatar.WebSocketService;
 import com.angel.config.ConfigManager;
 import com.angel.intelligence.proposals.Proposal;
 import com.angel.util.LogUtil;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Controller;
+import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Contrôleur pour l'avatar qui sert d'interface visuelle avec l'utilisateur.
- * Intégré avec AvatarManager pour gérer l'affichage, l'animation et les interactions de l'avatar.
+ * Contrôleur pour l'interface utilisateur de l'avatar.
+ * Version corrigée compatible avec l'API existante.
  */
-@Controller
+@Component
 public class AvatarController {
-
+    
     private static final Logger LOGGER = LogUtil.getLogger(AvatarController.class);
     
     private final ConfigManager configManager;
     private final AvatarManager avatarManager;
-    private boolean isInitialized = false;
+    private final WebSocketService webSocketService;
+    private boolean isReady = false;
     
-    /**
-     * Constructeur avec injection des dépendances.
-     * 
-     * @param configManager Le gestionnaire de configuration
-     * @param avatarManager Le gestionnaire d'avatar intégré
-     */
-    @Autowired
-    public AvatarController(ConfigManager configManager, AvatarManager avatarManager) {
+    public AvatarController(ConfigManager configManager, 
+                           AvatarManager avatarManager,
+                           WebSocketService webSocketService) {
         this.configManager = configManager;
         this.avatarManager = avatarManager;
+        this.webSocketService = webSocketService;
+        
+        // Initialiser automatiquement l'avatar
+        initialize();
     }
     
     /**
-     * Initialise l'avatar si ce n'est pas déjà fait.
+     * Initialise le contrôleur d'avatar.
      * 
-     * @return CompletableFuture qui se termine lorsque l'avatar est initialisé
+     * @return CompletableFuture pour l'initialisation
      */
     public CompletableFuture<Void> initialize() {
-        if (isInitialized) {
-            return CompletableFuture.completedFuture(null);
-        }
-        
-        if (!configManager.getBoolean("avatar.enabled", true)) {
-            LOGGER.log(Level.INFO, "Avatar désactivé dans la configuration");
-            return CompletableFuture.completedFuture(null);
-        }
-        
-        return avatarManager.initializeAvatar()
-            .thenRun(() -> {
-                isInitialized = true;
+        return CompletableFuture.runAsync(() -> {
+            try {
+                LOGGER.log(Level.INFO, "Initialisation de l'AvatarController...");
+                
+                // Initialiser l'avatar manager
+                avatarManager.initializeAvatar().get();
+                
+                isReady = true;
                 LOGGER.log(Level.INFO, "AvatarController initialisé avec succès");
-            })
-            .exceptionally(throwable -> {
-                LOGGER.log(Level.SEVERE, "Erreur lors de l'initialisation de l'AvatarController", throwable);
-                return null;
-            });
+                
+            } catch (Exception e) {
+                LOGGER.log(Level.SEVERE, "Erreur lors de l'initialisation de l'AvatarController", e);
+                isReady = false;
+            }
+        });
     }
     
     /**
-     * Affiche l'avatar avec une proposition.
+     * Affiche un message via l'avatar avec synthèse vocale.
      * 
-     * @param proposal La proposition à présenter
-     * @return CompletableFuture qui se termine lorsque l'avatar a fini de présenter
+     * @param message Le message à afficher et dire
+     * @param emotion L'émotion à exprimer
+     * @param displayDurationMs Durée d'affichage en millisecondes
+     * @return CompletableFuture qui se termine quand l'avatar a fini
      */
-    public CompletableFuture<Void> displayProposal(Proposal proposal) {
-        if (!configManager.getBoolean("avatar.enabled", true)) {
-            LOGGER.log(Level.INFO, "Avatar désactivé, proposition non affichée");
-            return CompletableFuture.completedFuture(null);
-        }
-        
-        // S'assurer que l'avatar est initialisé
-        return initialize()
-            .thenCompose(v -> {
-                // Générer le contenu pour l'avatar
-                String avatarPrompt = proposal.generateAvatarPrompt();
-                String proposalContent = proposal.getContent();
-                
-                LOGGER.log(Level.INFO, "Affichage de l'avatar avec la proposition: {0}", proposal.getTitle());
-                
-                // Analyser l'émotion appropriée pour la proposition
-                String emotion = determineEmotionFromProposal(proposal);
-                
-                // Afficher l'avatar et faire parler
-                return CompletableFuture.runAsync(() -> {
-                    avatarManager.show();
-                })
-                .thenCompose(v2 -> {
-                    // Faire parler l'avatar avec le prompt d'introduction
-                    return avatarManager.speak(avatarPrompt, emotion);
-                })
-                .thenCompose(v3 -> {
-                    // Attendre un peu puis présenter le contenu principal
-                    try {
-                        Thread.sleep(500);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                    }
-                    return avatarManager.speak(proposalContent, emotion);
-                })
-                .thenCompose(v4 -> {
-                    // Maintenir l'avatar visible pendant la durée configurée
-                    long displayTime = configManager.getLong("avatar.displayTime", 30000);
-                    return CompletableFuture.runAsync(() -> {
-                        try {
-                            Thread.sleep(displayTime);
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                        }
-                    });
-                })
-                .thenRun(() -> {
-                    // Cacher l'avatar après présentation
-                    avatarManager.hide();
-                });
-            });
-    }
-    
-    /**
-     * Affiche l'avatar avec un message texte simple.
-     * 
-     * @param text Le texte à afficher
-     * @param mood L'humeur de l'avatar (affecte son expression)
-     * @param durationMs Durée d'affichage en millisecondes
-     * @return CompletableFuture qui se termine lorsque l'avatar a fini de présenter
-     */
-    public CompletableFuture<Void> displayMessage(String text, String mood, long durationMs) {
-        if (!configManager.getBoolean("avatar.enabled", true)) {
-            LOGGER.log(Level.INFO, "Avatar désactivé, message non affiché");
-            return CompletableFuture.completedFuture(null);
-        }
-        
-        return initialize()
-            .thenCompose(v -> {
-                LOGGER.log(Level.INFO, "Affichage d'un message par l'avatar: {0}", text);
-                
-                return CompletableFuture.runAsync(() -> {
-                    avatarManager.show();
-                })
-                .thenCompose(v2 -> {
-                    // Définir l'émotion avant de parler
-                    avatarManager.setEmotion(mood, 0.7);
-                    return avatarManager.speak(text, mood);
-                })
-                .thenCompose(v3 -> {
-                    // Maintenir l'avatar visible pendant la durée spécifiée
-                    return CompletableFuture.runAsync(() -> {
-                        try {
-                            Thread.sleep(durationMs);
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                        }
-                    });
-                })
-                .thenRun(() -> {
-                    avatarManager.hide();
-                });
-            });
-    }
-    
-    /**
-     * Salue l'utilisateur avec un geste d'accueil.
-     * 
-     * @return CompletableFuture qui se termine lorsque le salut est terminé
-     */
-    public CompletableFuture<Void> greetUser() {
-        return initialize()
-            .thenCompose(v -> {
-                String greetingMessage = configManager.getString("avatar.greetingMessage", 
-                    "Bonjour ! Je suis votre assistante virtuelle Angel. Comment puis-je vous aider aujourd'hui ?");
-                
-                return CompletableFuture.runAsync(() -> {
-                    avatarManager.show();
-                })
-                .thenRun(() -> {
-                    // Effectuer un geste de salut
-                    avatarManager.playGesture("wave");
-                    avatarManager.setEmotion("happy", 0.8);
-                })
-                .thenCompose(v2 -> avatarManager.speak(greetingMessage, "happy"));
-            });
-    }
-    
-    /**
-     * Fait dire au revoir à l'avatar.
-     * 
-     * @return CompletableFuture qui se termine lorsque les adieux sont terminés
-     */
-    public CompletableFuture<Void> sayGoodbye() {
-        if (!isInitialized) {
-            return CompletableFuture.completedFuture(null);
-        }
-        
-        String goodbyeMessage = configManager.getString("avatar.goodbyeMessage", 
-            "Au revoir ! N'hésitez pas à revenir si vous avez besoin d'aide.");
+    public CompletableFuture<Void> displayMessage(String message, String emotion, long displayDurationMs) {
+        LOGGER.log(Level.INFO, "Affichage message avec émotion {0}: {1}", new Object[]{emotion, message});
         
         return CompletableFuture.runAsync(() -> {
-            avatarManager.show();
-        })
-        .thenRun(() -> {
-            avatarManager.playGesture("goodbye_wave");
-            avatarManager.setEmotion("friendly", 0.6);
-        })
-        .thenCompose(v -> avatarManager.speak(goodbyeMessage, "friendly"))
-        .thenRun(() -> {
             try {
-                Thread.sleep(2000); // Attendre 2 secondes
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+                // Vérifier si des clients WebSocket sont connectés
+                if (!webSocketService.hasConnectedAvatarSessions()) {
+                    LOGGER.log(Level.WARNING, "Aucun client WebSocket connecté pour l'avatar");
+                    return;
+                }
+                
+                // Utilisation directe du WebSocketService pour envoyer le message vocal
+                webSocketService.sendSpeechMessage(message, emotion);
+
+                // Debug: test direct
+                LOGGER.log(Level.INFO, "🧪 DEBUG - Test direct sendSpeechMessage");                
+                webSocketService.debugListSessions();
+                webSocketService.sendSpeechMessage("Test direct depuis AvatarController", "neutral");                
+                // Si l'AvatarManager est initialisé, l'utiliser aussi pour les animations
+                if (isReady) {
+                    try {
+                        // Utiliser l'AvatarManager pour les animations (sans attendre)
+                        avatarManager.speak(message, emotion);
+                    } catch (Exception e) {
+                        // En cas d'erreur avec AvatarManager, continuer avec le WebSocket seulement
+                        LOGGER.log(Level.FINE, "AvatarManager non disponible, utilisation WebSocket uniquement", e);
+                    }
+                }
+                
+                LOGGER.log(Level.INFO, "Message envoyé via WebSocket et AvatarManager");
+                
+            } catch (Exception e) {
+                LOGGER.log(Level.SEVERE, "Erreur lors de l'affichage du message", e);
             }
-            avatarManager.hide();
         });
+    }
+    
+    /**
+     * Affiche un message via l'avatar avec synthèse vocale (version avec int pour compatibilité).
+     */
+    public CompletableFuture<Void> displayMessage(String message, String emotion, int displayDuration) {
+        return displayMessage(message, emotion, (long) displayDuration);
+    }
+    
+    /**
+     * Affiche une proposition via l'avatar.
+     * 
+     * @param proposal La proposition à afficher
+     * @return CompletableFuture qui se termine quand la proposition est affichée
+     */
+    public CompletableFuture<Void> displayProposal(Proposal proposal) {
+        try {
+            // Préparer la proposition
+            proposal.prepare(null, null, java.time.LocalDateTime.now());
+            
+            String content = proposal.getContent();
+            String emotion = determineEmotionForProposal(proposal);
+            
+            LOGGER.log(Level.INFO, "Affichage proposition: {0}", content);
+            
+            // Utiliser la méthode displayMessage pour la cohérence
+            return displayMessage(content, emotion, 0L);
+                
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Erreur lors de l'affichage de la proposition", e);
+            return CompletableFuture.completedFuture(null);
+        }
     }
     
     /**
      * Change l'apparence de l'avatar.
      * 
-     * @param gender Genre de l'avatar
-     * @param age Âge de l'avatar
-     * @param style Style vestimentaire
-     * @return CompletableFuture qui se termine lorsque le changement est effectué
+     * @param gender Genre
+     * @param age Âge
+     * @param style Style
+     * @return CompletableFuture qui se termine quand le changement est effectué
      */
     public CompletableFuture<Void> changeAppearance(String gender, int age, String style) {
-        return initialize()
-            .thenCompose(v -> avatarManager.changeAppearance(gender, age, style));
+        return CompletableFuture.runAsync(() -> {
+            try {
+                LOGGER.log(Level.INFO, "Changement d'apparence: {0}, {1} ans, style {2}", 
+                          new Object[]{gender, age, style});
+                
+                if (isReady) {
+                    avatarManager.changeAppearance(gender, age, style).get();
+                } else {
+                    LOGGER.log(Level.WARNING, "Avatar non initialisé pour le changement d'apparence");
+                }
+                
+            } catch (Exception e) {
+                LOGGER.log(Level.SEVERE, "Erreur lors du changement d'apparence", e);
+            }
+        });
     }
     
     /**
-     * Force l'affichage immédiat de l'avatar.
+     * Salue l'utilisateur.
      */
-    public void showAvatar() {
-        if (isInitialized) {
-            avatarManager.show();
+    public CompletableFuture<Void> greetUser() {
+        String userName = configManager.getString("user.name", "");
+        String greeting = getTimeBasedGreeting();
+        
+        String greetingMessage = userName.isEmpty() ? 
+            greeting + " ! Comment allez-vous ?" :
+            greeting + " " + userName + " ! Comment allez-vous ?";
+            
+        return displayMessage(greetingMessage, "friendly", 0L);
+    }
+    
+    /**
+     * Dit au revoir à l'utilisateur.
+     */
+    public CompletableFuture<Void> sayGoodbye() {
+        String userName = configManager.getString("user.name", "");
+        String goodbyeMessage = userName.isEmpty() ? 
+            "Au revoir ! À bientôt !" :
+            "Au revoir " + userName + " ! À bientôt !";
+            
+        return displayMessage(goodbyeMessage, "friendly", 0L);
+    }
+    
+    /**
+     * Change l'émotion de l'avatar.
+     * 
+     * @param emotion Nouvelle émotion
+     * @param intensity Intensité de l'émotion
+     */
+    public void setEmotion(String emotion, double intensity) {
+        if (isReady) {
+            avatarManager.setEmotion(emotion, intensity);
+        }
+        
+        // Aussi envoyer via WebSocket si nécessaire
+        if (webSocketService.hasConnectedAvatarSessions()) {
+            try {
+                String emotionMessage = String.format(
+                    "{\"type\":\"AVATAR_EMOTION\",\"emotion\":\"%s\",\"intensity\":%f,\"timestamp\":%d}",
+                    emotion, intensity, System.currentTimeMillis()
+                );
+                
+                webSocketService.getActiveSessions().values().forEach(session -> {
+                    try {
+                        if (session.isOpen()) {
+                            session.sendMessage(new org.springframework.web.socket.TextMessage(emotionMessage));
+                        }
+                    } catch (Exception e) {
+                        LOGGER.log(Level.WARNING, "Erreur envoi émotion via WebSocket", e);
+                    }
+                });
+            } catch (Exception e) {
+                LOGGER.log(Level.WARNING, "Erreur lors de l'envoi de l'émotion", e);
+            }
         }
     }
     
     /**
-     * Force le masquage immédiat de l'avatar.
+     * Cache l'avatar.
      */
     public void hideAvatar() {
-        if (isInitialized) {
+        if (isReady) {
             avatarManager.hide();
         }
     }
     
     /**
-     * Détermine l'émotion appropriée selon le type de proposition.
-     * 
-     * @param proposal La proposition à analyser
-     * @return L'émotion recommandée
+     * Affiche l'avatar.
      */
-    private String determineEmotionFromProposal(Proposal proposal) {
-        // Utiliser une méthode simple pour déterminer l'émotion
-        // car getType() semble ne pas exister
-        String title = proposal.getTitle();
-        String content = proposal.getContent();
-        
-        if (title == null && content == null) return "neutral";
-        
-        String text = (title != null ? title : "") + " " + (content != null ? content : "");
-        text = text.toLowerCase();
-        
-        if (text.contains("succès") || text.contains("réussi") || text.contains("félicitation")) {
-            return "happy";
-        } else if (text.contains("alerte") || text.contains("attention") || text.contains("problème")) {
-            return "concerned";
-        } else if (text.contains("suggestion") || text.contains("conseil") || text.contains("amélioration")) {
-            return "thoughtful";
-        } else {
-            return "neutral";
+    public void showAvatar() {
+        if (isReady) {
+            avatarManager.show();
         }
     }
     
     /**
-     * Vérifie si l'avatar est actuellement initialisé et actif.
-     * 
-     * @return true si l'avatar est prêt à être utilisé
+     * Génère une salutation basée sur l'heure.
      */
-    public boolean isReady() {
-        return isInitialized && avatarManager.isActive();
+    private String getTimeBasedGreeting() {
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        int hour = now.getHour();
+        
+        if (hour >= 5 && hour < 12) {
+            return configManager.getString("voice.greetings.morning", "Bonjour");
+        } else if (hour >= 12 && hour < 17) {
+            return configManager.getString("voice.greetings.afternoon", "Bon après-midi");
+        } else if (hour >= 17 && hour < 21) {
+            return configManager.getString("voice.greetings.evening", "Bonsoir");
+        } else {
+            return configManager.getString("voice.greetings.night", "Bonne soirée");
+        }
     }
     
     /**
-     * Obtient la configuration actuelle de l'avatar.
-     * 
-     * @return La configuration de l'avatar
+     * Détermine l'émotion appropriée pour une proposition.
      */
-    public Object getCurrentConfig() {
-        return avatarManager.getCurrentConfig();
+    private String determineEmotionForProposal(Proposal proposal) {
+        String proposalType = proposal.getClass().getSimpleName().toLowerCase();
+        
+        switch (proposalType) {
+            case "weatherproposal":
+                return "informative";
+            case "newsproposal":
+                return "attentive";
+            case "storyproposal":
+                return "friendly";
+            case "reminderproposal":
+                return "helpful";
+            default:
+                return "neutral";
+        }
+    }
+    
+    // Getters pour l'API
+    public boolean isReady() {
+        return isReady;
+    }
+    
+    public boolean isInitialized() {
+        return isReady;
+    }
+    
+    public AvatarConfig getCurrentConfig() {
+        if (isReady && avatarManager != null) {
+            return avatarManager.getCurrentConfig();
+        }
+        // Retourner une configuration par défaut si l'avatar n'est pas prêt
+        return new AvatarConfig();
+    }
+    
+    /**
+     * Obtient le nombre de sessions WebSocket connectées.
+     */
+    public int getConnectedSessionCount() {
+        return webSocketService.getConnectedAvatarSessionCount();
     }
 }
