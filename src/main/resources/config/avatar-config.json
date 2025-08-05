@@ -1,0 +1,110 @@
+{
+  "app": {
+    "name": "Angel Virtual Assistant",
+    "version": "1.0.0",
+    "mode": "production"
+  },
+  "dependencies": {
+    "threejs": {
+      "version": "r128",
+      "url": "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js",
+      "timeout": 20000,
+      "required": true
+    },
+    "gltfLoader": {
+      "url": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js",
+      "timeout": 15000,
+      "required": true,
+      "loadAfter": "threejs"
+    },
+    "tweenjs": {
+      "version": "18.6.4",
+      "url": "https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js",
+      "timeout": 10000,
+      "required": false
+    }
+  },
+  "avatar": {
+    "rendering": {
+      "antialiasing": true,
+      "shadows": true,
+      "quality": "high",
+      "pixelRatio": "auto"
+    },
+    "appearance": {
+      "gender": "female",
+      "age": 30,
+      "style": "casual"
+    },
+    "readyPlayerMe": {
+      "enabled": true,
+      "baseUrl": "https://models.readyplayer.me",
+      "defaultAvatarId": "687f66fafe8107131699bf7b",
+      "timeout": 30000,
+      "fallbackModels": [
+        "/models/avatars/female_mature_elegant.glb",
+        "/models/avatars/female_adult_casual.glb"
+      ]
+    },
+    "animations": {
+      "speaking": {
+        "enabled": true,
+        "intensity": 0.7
+      },
+      "idle": {
+        "enabled": true,
+        "variations": 3
+      },
+      "emotions": {
+        "enabled": true,
+        "transitions": true,
+        "duration": 1000
+      }
+    }
+  },
+  "voice": {
+    "wakeWord": {
+      "enabled": true,
+      "words": ["angel", "angèle", "angelo"],
+      "threshold": 0.7,
+      "timeout": 5000,
+      "fallbackMode": true
+    },
+    "speech": {
+      "synthesis": {
+        "voice": "Microsoft Hortense - French (France) (fr-FR)",
+        "rate": 1.0,
+        "pitch": 1.0,
+        "volume": 0.8
+      },
+      "recognition": {
+        "language": "fr-FR",
+        "continuous": true,
+        "interimResults": true,
+        "maxAlternatives": 1
+      }
+    },
+    "integration": {
+      "websocketUrl": "/ws/voice",
+      "reconnectAttempts": 5,
+      "reconnectDelay": 2000
+    }
+  },
+  "ui": {
+    "theme": "modern",
+    "seniorMode": true,
+    "autoHideControls": true,
+    "animations": true,
+    "notifications": {
+      "enabled": true,
+      "position": "top-right",
+      "duration": 5000
+    }
+  },
+  "debug": {
+    "enabled": false,
+    "verbose": false,
+    "showPerformance": false,
+    "logLevel": "info"
+  }
+}
