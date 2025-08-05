@@ -89,7 +89,10 @@
             try {
                 // Three.js
                 await loadScript('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js', 'Three.js');
-                
+
+                await loadScript('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js', 'GLTFLoader');
+                window.GLTFLoaderReady = true; // Marquer comme prêt
+
                 // Tween.js (optionnel)
                 try {
                     await loadScript('https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js', 'Tween.js');

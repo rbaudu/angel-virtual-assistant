@@ -579,3 +579,22 @@ class WakeWordDetector {
         this.isConnected = false;
     }
 }
+
+// Export global pour continuous-voice-manager
+window.wakeWordDetector = {
+    startListening: function() {
+        // Utiliser votre code existant de wake-word-detector
+        if (window.WakeWordDetector && typeof window.WakeWordDetector.startListening === 'function') {
+            return window.WakeWordDetector.startListening();
+        }
+        console.log('🎤 Wake word detector démarré (fallback)');
+        return Promise.resolve();
+    },
+    stopListening: function() {
+        if (window.WakeWordDetector && typeof window.WakeWordDetector.stopListening === 'function') {
+            return window.WakeWordDetector.stopListening();
+        }
+        console.log('🛑 Wake word detector arrêté (fallback)');
+        return Promise.resolve();
+    }
+};

@@ -37,7 +37,7 @@ class ContinuousVoiceManager {
             if (!window.wakeWordDetector) {
                 console.warn('⚠️ WakeWordDetector non disponible, attente...');
                 // Réessayer dans 2 secondes
-                setTimeout(() => this.startContinuousListening(), 2000);
+                setTimeout(() => this.startContinuousListening(), 500);
                 return;
             }
             
