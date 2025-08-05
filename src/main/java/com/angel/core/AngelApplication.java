@@ -1,5 +1,21 @@
 package com.angel.core;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.stereotype.Component;
+
 import com.angel.api.AngelServerClient;
 import com.angel.avatar.AvatarManager;
 import com.angel.avatar.EmotionAnalyzer;
@@ -7,7 +23,8 @@ import com.angel.avatar.TextToSpeechService;
 import com.angel.avatar.WebSocketService;
 import com.angel.config.ConfigManager;
 import com.angel.intelligence.ProposalEngine;
-import com.angel.intelligence.proposals.*;
+import com.angel.intelligence.proposals.Proposal;
+import com.angel.intelligence.proposals.WeatherProposal;
 import com.angel.model.Activity;
 import com.angel.model.UserProfile;
 import com.angel.persistence.DatabaseManager;
@@ -15,18 +32,11 @@ import com.angel.persistence.dao.ProposalDAO;
 import com.angel.persistence.dao.UserPreferenceDAO;
 import com.angel.ui.AvatarController;
 import com.angel.util.LogUtil;
+import com.angel.voice.VoiceActivityManager;
 import com.angel.voice.VoiceQuestionContext;
 import com.angel.voice.VoiceQuestionProcessor;
 import com.angel.voice.WakeWordDetector;
 
-import java.time.LocalDateTime;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import org.springframework.stereotype.Component;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 
@@ -46,6 +56,9 @@ public class AngelApplication {
     @Autowired
     private VoiceQuestionProcessor voiceQuestionProcessor;
     
+    @Autowired
+    private VoiceActivityManager voiceActivityManager;
+
     // Injection des services avatar via Spring
     @Autowired
     private WebSocketService webSocketService;
@@ -109,7 +122,9 @@ public class AngelApplication {
             // Initialiser le scheduler pour les tâches périodiques
             this.scheduler = Executors.newScheduledThreadPool(2);
             LOGGER.log(Level.INFO, "Composants Angel initialisés avec succès");
-            
+
+            // Démarrer l'écoute continue
+            voiceActivityManager.startContinuousListening();
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Erreur lors de l'initialisation des composants Angel", e);
             throw new RuntimeException("Échec de l'initialisation d'Angel", e);
@@ -265,19 +280,23 @@ public class AngelApplication {
         LOGGER.log(Level.INFO, "Mot-clé détecté, activation du système");
  
         // Générer le message d'activation personnalisé
-        String activationMessage = voiceQuestionProcessor.generateActivationMessage();
-
-        // Afficher un message de confirmation via l'avatar et le faire parler
-        avatarController.displayMessage(
-            activationMessage,
-            "attentive",
-            5000
-        ).thenRun(() -> {
-            // Ici, on pourrait démarrer une reconnaissance vocale plus complète
-            // pour comprendre la commande de l'utilisateur
-            
-            // Pour cet exemple, on pourrait simplement proposer quelque chose de pertinent
-            checkForProposals();
+        voiceQuestionProcessor.generateActivationMessage().thenAccept(activationMessage -> {
+            // Le code qui utilisait activationMessage
+            // Par exemple, si vous l'envoyiez à l'interface :
+            // sendActivationMessageToClient(activationMessage);
+            LOGGER.log(Level.INFO, "Message d'activation généré : {0}", activationMessage);
+            // Afficher un message de confirmation via l'avatar et le faire parler
+            avatarController.displayMessage(
+                activationMessage,
+                "attentive",
+                5000
+            ).thenRun(() -> {
+                // Ici, on pourrait démarrer une reconnaissance vocale plus complète
+                // pour comprendre la commande de l'utilisateur
+                
+                // Pour cet exemple, on pourrait simplement proposer quelque chose de pertinent
+                checkForProposals();
+            });
         });
     }
     
@@ -345,6 +364,11 @@ public class AngelApplication {
             confidence
         );
         
+        if (voiceActivityManager.handleUICommand(question)) {
+            LOGGER.log(Level.INFO, "Commande d''interface trait\u00e9e : {0}", question);
+            return CompletableFuture.completedFuture(null);
+        }
+
         // Déléguer au processeur spécialisé
         return voiceQuestionProcessor.processQuestion(question, confidence, context);
     }

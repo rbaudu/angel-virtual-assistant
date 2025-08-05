@@ -5,19 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${pageTitle ?: 'Angel Virtual Assistant'}">Angel Virtual Assistant</title>
     
-    <!-- Styles extraits dans un fichier CSS séparé -->
+    <!-- Styles CSS organisés -->
     <link rel="stylesheet" th:href="@{/css/avatar.css}">
-	<link rel="stylesheet" th:href="@{/css/wake-word-detector.css}">
-	<link rel="icon" type="image/x-icon" th:href="@{/assets/images/favicon.ico}">
-	<link rel="shortcut icon" type="image/x-icon" th:href="@{/assets/images/favicon.ico}">
+    <link rel="stylesheet" th:href="@{/css/wake-word-detector.css}">
+    <link rel="stylesheet" th:href="@{/css/voice-enhancements.css}">
+    <link rel="icon" type="image/x-icon" th:href="@{/assets/images/favicon.ico}">
     
     <!-- Meta tags -->
     <meta name="theme-color" content="#667eea">
-    <meta name="description" content="Interface web pour Angel Virtual Assistant">
+    <meta name="description" content="Interface web améliorée pour Angel Virtual Assistant avec écoute continue">
 </head>
-<body class="avatar-fullscreen">
+<body class="avatar-fullscreen senior-mode" data-user-type="senior">
     <!-- Container principal de l'avatar -->
-    <div id="avatar-container">
+    <div id="avatar-container" class="smooth-transition">
         <!-- Zone de rendu 3D -->
         <div id="avatar-viewport">
             <div class="loading-spinner" id="loading-spinner"></div>
@@ -25,17 +25,17 @@
         </div>
 
         <!-- Bulle de message -->
-        <div id="message-bubble">
-            <p id="message-text">Bonjour ! Je suis Angel, votre assistant virtuel.</p>
+        <div id="message-bubble" class="smooth-transition">
+            <p id="message-text">Bonjour ! Je suis Angèle, votre assistante virtuelle. Dites "Angèle" pour m'activer.</p>
         </div>
 
-        <!-- Contrôles de l'avatar -->
-        <div id="avatar-controls">
+        <!-- Contrôles de l'avatar (cachés par défaut) -->
+        <div id="avatar-controls" class="auto-hide">
             <button class="control-button" id="mute-btn" title="Couper/Activer le son">
                 🔊
             </button>
             
-            <div id="avatar-status">En attente...</div>
+            <div id="avatar-status">En écoute...</div>
             
             <button class="control-button" id="settings-btn" title="Paramètres">
                 ⚙️
@@ -43,152 +43,75 @@
         </div>
     </div>
 
-	<!-- Interface vocale -->
-	<div class="voice-interface">
-	    <!-- Indicateur d'écoute -->
-	    <div id="listening-indicator" class="idle" title="État de reconnaissance vocale">
-	        🎤
-	    </div>
-	    
-	    <!-- Contrôles vocaux -->
-	    <div class="voice-controls">
-	        <button id="start-listening" class="voice-control-btn start" title="Démarrer l'écoute">
-	            ▶️
-	        </button>
-	        <button id="stop-listening" class="voice-control-btn stop" title="Arrêter l'écoute">
-	            ⏹️
-	        </button>
-	        <button id="voice-settings" class="voice-control-btn settings" title="Paramètres vocaux">
-	            ⚙️
-	        </button>
-	    </div>
-	    
-	    <!-- Panneau de configuration vocale -->
-	    <div id="voice-settings-panel" class="voice-settings-panel">
-	        <button class="close-settings" id="close-settings">×</button>
-	        <h3>Paramètres de reconnaissance vocale</h3>
-	        
-	        <div class="voice-setting">
-	            <label for="wake-word-input">Mot-clé :</label>
-	            <input type="text" id="wake-word-input" value="Angel" />
-	        </div>
-	        
-	        <div class="voice-setting">
-	            <label for="language-select">Langue :</label>
-	            <select id="language-select">
-	                <option value="fr-FR">Français</option>
-	                <option value="en-US">English (US)</option>
-	                <option value="en-GB">English (UK)</option>
-	                <option value="es-ES">Español</option>
-	                <option value="de-DE">Deutsch</option>
-	            </select>
-	        </div>
-	        
-	        <div class="voice-setting">
-	            <label for="confidence-slider">Seuil de confiance : <span id="confidence-value">0.7</span></label>
-	            <input type="range" id="confidence-slider" min="0.1" max="1.0" step="0.1" value="0.7" />
-	        </div>
-	        
-	        <div class="voice-setting">
-	            <label>
-	                <input type="checkbox" id="continuous-listening" checked />
-	                Écoute continue
-	            </label>
-	        </div>
-	        
-	        <div class="voice-setting">
-	            <label>
-	                <input type="checkbox" id="debug-mode" />
-	                Mode debug
-	            </label>
-	        </div>
-	    </div>
-	    
-	    <!-- Statut de reconnaissance vocale -->
-	    <div id="speech-status" class="speech-status">
-	        Initialisation...
-	    </div>
-	</div>
-
-	<!-- Message d'avertissement navigateur -->
-	<div id="browser-warning" class="browser-warning">
-	    <h4>⚠️ Navigateur non compatible</h4>
-	    <p>Votre navigateur ne supporte pas la reconnaissance vocale. Veuillez utiliser Chrome, Edge ou Safari.</p>
-	    <button onclick="this.parentElement.style.display='none'">Fermer</button>
-	</div>
-	
-    <!-- Overlay pour les paramètres -->
-    <div id="settings-overlay"></div>
-
-    <!-- Panneau de paramètres -->
-    <div id="avatar-settings">
-        <h3 class="settings-title">Configuration de l'Avatar</h3>
-        
-        <div class="setting-group">
-            <label class="setting-label" for="gender-select">Genre :</label>
-            <select class="setting-select" id="gender-select">
-                <option value="female">Femme</option>
-                <option value="male">Homme</option>
-            </select>
+    <!-- Interface vocale améliorée -->
+    <div class="voice-interface auto-hide">
+        <!-- Indicateur d'écoute principal -->
+        <div id="listening-indicator" class="listening-indicator listening" title="État de reconnaissance vocale">
+            🎤
         </div>
         
-        <div class="setting-group">
-            <label class="setting-label" for="age-select">Âge :</label>
-            <select class="setting-select" id="age-select">
-                <option value="25">25 ans</option>
-                <option value="30" selected>30 ans</option>
-                <option value="35">35 ans</option>
-                <option value="40">40 ans</option>
-                <option value="50">50 ans</option>
-                <option value="60">60 ans</option>
-            </select>
-        </div>
-        
-        <div class="setting-group">
-            <label class="setting-label" for="style-select">Style :</label>
-            <select class="setting-select" id="style-select">
-                <option value="casual" selected>Décontracté</option>
-                <option value="professional">Professionnel</option>
-                <option value="friendly">Amical</option>
-                <option value="elegant">Élégant</option>
-            </select>
-        </div>
-        
-        <div class="setting-group">
-            <label class="setting-label" for="voice-select">Voix :</label>
-            <select class="setting-select" id="voice-select">
-                <option value="female_french_warm" selected>Femme - Chaleureuse</option>
-                <option value="female_french_professional">Femme - Professionnelle</option>
-                <option value="male_french_warm">Homme - Chaleureux</option>
-                <option value="male_french_professional">Homme - Professionnel</option>
-            </select>
-        </div>
-        
-        <div class="settings-actions">
-            <button class="btn btn-secondary" id="cancel-settings">Annuler</button>
-            <button class="btn btn-primary" id="apply-settings">Appliquer</button>
+        <!-- Contrôles vocaux (cachés par défaut) -->
+        <div class="voice-controls" style="display: none;">
+            <button id="start-listening" class="voice-control-btn start" title="Démarrer l'écoute">
+                ▶️
+            </button>
+            <button id="stop-listening" class="voice-control-btn stop" title="Arrêter l'écoute">
+                ⏹️
+            </button>
+            <button id="voice-settings" class="voice-control-btn settings" title="Paramètres vocaux">
+                ⚙️
+            </button>
         </div>
     </div>
 
-    <!-- Scripts externes avec gestion d'erreurs améliorée -->
+    <!-- Statut de reconnaissance vocale -->
+    <div id="speech-status" class="speech-status listening">
+        Initialisation de l'écoute continue...
+    </div>
+
+    <!-- Scripts externes avec gestion d'erreurs -->
     <script>
-        console.log('🚀 Début chargement des scripts...');
+        console.log('🚀 Début chargement enhanced-avatar.html...');
         
-        // Variables globales pour le suivi du chargement
-        window.scriptLoadStatus = {
-            three: false,
-            tween: false,
-            gltfLoader: false
+        // Configuration globale
+        window.ANGEL_CONFIG = {
+            contextPath: /*[[${contextPath ?: '/'}]]*/ '/',
+            pageTitle: /*[[${pageTitle ?: 'Angel Virtual Assistant'}]]*/ 'Angel Virtual Assistant',
+            avatarEnabled: /*[[${avatarEnabled ?: true}]]*/ true,
+            autoStartListening: true,
+            hideControlsByDefault: true,
+            seniorMode: true,
+            debug: false
         };
         
-        // Fonction utilitaire pour charger des scripts de manière séquentielle
+        // Chargement des dépendances externes
+        async function loadExternalLibraries() {
+            try {
+                // Three.js
+                await loadScript('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js', 'Three.js');
+                
+                // Tween.js (optionnel)
+                try {
+                    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js', 'Tween.js');
+                } catch (e) {
+                    console.warn('⚠️ Tween.js non chargé, continuons...');
+                }
+                
+                console.log('✅ Dépendances externes chargées');
+                return true;
+                
+            } catch (error) {
+                console.error('❌ Erreur chargement dépendances:', error);
+                return false;
+            }
+        }
+        
         function loadScript(src, name) {
             return new Promise((resolve, reject) => {
                 const script = document.createElement('script');
                 script.src = src;
                 script.onload = () => {
                     console.log(`✅ ${name} chargé`);
-                    window.scriptLoadStatus[name.toLowerCase()] = true;
                     resolve();
                 };
                 script.onerror = () => {
@@ -199,365 +122,175 @@
             });
         }
         
-        // Chargement séquentiel des dépendances
-        async function loadExternalLibraries() {
-            try {
-                // Chargement de Three.js
-                await loadScript('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js', 'Three');
-                
-                // Chargement de Tween.js (optionnel)
-                try {
-                    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js', 'Tween');
-                } catch (error) {
-                    console.warn('⚠️ Tween.js non chargé, continuons sans...');
-                }
-                
-                // Chargement de GLTFLoader avec plusieurs tentatives
-                const gltfLoaderUrls = [
-                    'https://threejs.org/examples/js/loaders/GLTFLoader.js',
-                    'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js',
-                    'https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js'
-                ];
-                
-                let gltfLoaded = false;
-                for (const url of gltfLoaderUrls) {
-                    try {
-                        await loadScript(url, 'GLTFLoader');
-                        gltfLoaded = true;
-                        window.GLTFLoaderReady = true;
-                        break;
-                    } catch (error) {
-                        console.warn(`⚠️ Tentative GLTFLoader échouée: ${url}`);
-                    }
-                }
-                
-                if (!gltfLoaded) {
-                    console.error('❌ Impossible de charger GLTFLoader depuis toutes les sources');
-                }
-                
-                console.log('🎉 Dépendances externes chargées');
-                return true;
-                
-            } catch (error) {
-                console.error('❌ Erreur lors du chargement des dépendances:', error);
-                return false;
-            }
-        }
-        
         // Démarrer le chargement
-        loadExternalLibraries().then(() => {
-            console.log('📚 Prêt pour les scripts Avatar');
-        });
+        loadExternalLibraries();
     </script>
 
-    <!-- Scripts de l'avatar - ORDRE IMPORTANT avec gestion d'erreurs -->
-    <script th:src="@{/js/avatar/avatar-config.js}" 
-            onerror="console.error('❌ Erreur chargement avatar-config.js')"></script>
-    <script th:src="@{/js/avatar/avatar-renderer.js}" 
-            onerror="console.error('❌ Erreur chargement avatar-renderer.js')"></script>
-    <script th:src="@{/js/avatar/avatar-animation.js}" 
-            onerror="console.error('❌ Erreur chargement avatar-animation.js')"></script>
-    <script th:src="@{/js/avatar/avatar-websocket.js}" 
-            onerror="console.error('❌ Erreur chargement avatar-websocket.js')"></script>
-    <script th:src="@{/js/avatar/avatar-controller.js}" 
-            onerror="console.error('❌ Erreur chargement avatar-controller.js')"></script>
-    <script th:src="@{/js/avatar/ready-player-me.js}" 
-            onerror="console.error('❌ Erreur chargement ready-player-me.js')"></script>
-	<script th:src="@{/js/avatar/avatar-debug.js}"
-			onerror="console.error('❌ Erreur chargement avatar-debug.js')"></script>
-	<script th:src="@{/js/speech-recognition.js}" 
-		        onerror="console.error('❌ Erreur chargement speech-recognition.js')"></script>
-	<script th:src="@{/js/wake-word-detector.js}" 
-		        onerror="console.error('❌ Erreur chargement wake-word-detector.js')"></script>
-	<script src="/js/avatar-speech-integration.js"
-				onerror="console.error('❌ Erreur chargement avatar-speech-integration.js')"></script>   
-    <!-- Script principal - AngelAvatarApp -->
-    <script th:src="@{/js/avatar/avatar-main.js}" 
-            onerror="console.error('❌ Erreur chargement avatar-main.js')"></script>
+    <!-- Scripts de l'application (ordre important) -->
+    <script th:src="@{/js/avatar/avatar-config.js}"></script>
+    <script th:src="@{/js/avatar/avatar-renderer.js}"></script>
+    <script th:src="@{/js/avatar/avatar-animation.js}"></script>
+    <script th:src="@{/js/avatar/avatar-websocket.js}"></script>
+    <script th:src="@{/js/avatar/avatar-controller.js}"></script>
+    <script th:src="@{/js/avatar/ready-player-me.js}"></script>
+    <script th:src="@{/js/avatar/avatar-debug.js}"></script>
+    
+    <!-- Scripts vocaux existants -->
+    <script th:src="@{/js/speech-recognition.js}"></script>
+    <script th:src="@{/js/wake-word-detector.js}"></script>
+    
+    <!-- Scripts vocaux améliorés -->
+    <script th:src="@{/js/voice/enhanced-speech-integration.js}"></script>
+    <script th:src="@{/js/voice/continuous-voice-manager.js}"></script>
+    
+    <!-- Script principal -->
+    <script th:src="@{/js/avatar/avatar-main.js}"></script>
 
-    <!-- Configuration et initialisation -->
+    <!-- Initialisation et configuration -->
     <script type="text/javascript">
-        // Configuration Thymeleaf pour JavaScript
-        window.ANGEL_CONFIG = {
-            contextPath: /*[[${contextPath ?: '/'}]]*/ '/',
-            pageTitle: /*[[${pageTitle ?: 'Angel Virtual Assistant'}]]*/ 'Angel Virtual Assistant',
-            avatarEnabled: /*[[${avatarEnabled ?: true}]]*/ true,
-            debug: true
-        };
-
-        // API globale pour l'intégration
-        window.AngelAvatar = {
+        // API globale étendue
+        window.AngelAvatar = window.AngelAvatar || {};
+        
+        // Étendre l'API existante
+        window.AngelAvatar.voice = {
             speak: (text, emotion = 'neutral') => {
                 console.log(`🗣️ AngelAvatar.speak: "${text}" (${emotion})`);
                 
-                if (window.angelApp && typeof window.angelApp.speak === 'function') {
-                    window.angelApp.speak(text, emotion);
+                if (window.enhancedSpeechIntegration) {
+                    return window.enhancedSpeechIntegration.speakWithQueue(text, emotion);
+                } else if (window.avatarSpeech) {
+                    return window.avatarSpeech.speak(text, emotion);
                 } else {
-                    console.warn('⚠️ AngelApp non disponible pour speak()');
+                    console.warn('⚠️ Aucun système de synthèse vocale disponible');
+                    return Promise.resolve();
                 }
             },
             
-            setEmotion: (emotion, intensity = 1.0) => {
-                console.log(`😊 AngelAvatar.setEmotion: ${emotion} (${intensity})`);
-                
-                if (window.angelApp && typeof window.angelApp.setEmotion === 'function') {
-                    window.angelApp.setEmotion(emotion, intensity);
-                } else {
-                    console.warn('⚠️ AngelApp non disponible pour setEmotion()');
+            startListening: () => {
+                console.log('🎤 AngelAvatar.startListening');
+                if (window.continuousVoiceManager) {
+                    window.continuousVoiceManager.startContinuousListening();
+                } else if (window.wakeWordDetector) {
+                    window.wakeWordDetector.startListening();
                 }
             },
             
-            show: () => {
-                console.log('👁️ AngelAvatar.show');
-                if (window.angelApp && typeof window.angelApp.showAvatar === 'function') {
-                    window.angelApp.showAvatar();
-                } else {
-                    console.warn('⚠️ AngelApp non disponible pour show()');
+            showControls: () => {
+                console.log('👁️ AngelAvatar.showControls');
+                if (window.continuousVoiceManager) {
+                    window.continuousVoiceManager.showControls();
                 }
             },
             
-            hide: () => {
-                console.log('🙈 AngelAvatar.hide');
-                if (window.angelApp && typeof window.angelApp.hideAvatar === 'function') {
-                    window.angelApp.hideAvatar();
-                } else {
-                    console.warn('⚠️ AngelApp non disponible pour hide()');
+            hideControls: () => {
+                console.log('🙈 AngelAvatar.hideControls');
+                if (window.continuousVoiceManager) {
+                    window.continuousVoiceManager.hideControls();
                 }
-            },
-            
-            // Fonction de diagnostic
-            getStatus: () => {
-                return {
-                    angelAppLoaded: !!window.angelApp,
-                    angelAppInitialized: window.angelApp?.isInitialized || false,
-                    scriptStatus: window.scriptLoadStatus,
-                    threeLoaded: typeof THREE !== 'undefined',
-                    gltfLoaderReady: window.GLTFLoaderReady || false
-                };
             }
         };
-
-        // Gestion des erreurs globales améliorée
+        
+        // Gestion des erreurs améliorée
         window.addEventListener('error', function(event) {
-            console.error('❌ Erreur JavaScript globale:', event.error);
+            console.error('❌ Erreur JavaScript:', event.error);
             
-            // Afficher une notification d'erreur discrète
-            if (event.error && event.error.message && !event.error.message.includes('Script error')) {
-                const errorDiv = document.createElement('div');
-                errorDiv.style.cssText = `
+            if (event.error && !event.error.message.includes('Script error')) {
+                const errorNotification = document.createElement('div');
+                errorNotification.style.cssText = `
                     position: fixed;
                     top: 20px;
-                    right: 20px;
-                    background: rgba(244, 67, 54, 0.9);
+                    left: 20px;
+                    background: rgba(244, 67, 54, 0.95);
                     color: white;
-                    padding: 10px 15px;
-                    border-radius: 5px;
-                    z-index: 9999;
-                    max-width: 300px;
+                    padding: 12px 18px;
+                    border-radius: 8px;
+                    z-index: 10000;
+                    max-width: 400px;
                     font-size: 14px;
-                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                    cursor: pointer;
                 `;
-                errorDiv.innerHTML = `
-                    <strong>Erreur Avatar</strong><br>
-                    ${event.error.message}
-                    <div style="margin-top: 5px; font-size: 12px; opacity: 0.8;">
-                        Cliquez pour fermer
-                    </div>
+                errorNotification.innerHTML = `
+                    <strong>⚠️ Erreur système</strong><br>
+                    ${event.error.message}<br>
+                    <small style="opacity: 0.8; margin-top: 5px; display: block;">Cliquez pour fermer</small>
                 `;
                 
-                errorDiv.onclick = () => {
-                    if (errorDiv.parentNode) {
-                        errorDiv.parentNode.removeChild(errorDiv);
-                    }
-                };
+                errorNotification.onclick = () => errorNotification.remove();
+                document.body.appendChild(errorNotification);
                 
-                document.body.appendChild(errorDiv);
-                
-                // Auto-suppression après 8 secondes
                 setTimeout(() => {
-                    if (errorDiv.parentNode) {
-                        errorDiv.parentNode.removeChild(errorDiv);
+                    if (errorNotification.parentNode) {
+                        errorNotification.remove();
                     }
-                }, 8000);
+                }, 10000);
             }
         });
-
-        // Log de debug pour vérifier le chargement
-        console.log('🎭 Template avatar.html chargé');
-        console.log('📦 Configuration:', window.ANGEL_CONFIG);
-        console.log('🔧 AngelAvatar API disponible:', typeof window.AngelAvatar);
         
-        // Fonction utilitaire pour diagnostiquer les problèmes
-        window.diagnoseAvatar = () => {
-            const status = window.AngelAvatar.getStatus();
-            console.log('🔍 Diagnostic Avatar:', status);
-            return status;
-        };
+        console.log('🎭 Enhanced Avatar Template chargé');
+        console.log('📊 Configuration:', window.ANGEL_CONFIG);
     </script>
-	
-	<!-- Initialisation de la reconnaissance vocale -->
-	<script type="text/javascript">
-	// Variables globales pour la reconnaissance vocale
-	let wakeWordDetector = null;
-
-	// Fonction pour initialiser la reconnaissance vocale
-	async function initializeVoiceRecognition() {
-	    console.log('🎤 Initialisation de la reconnaissance vocale...');
-	    
-	    if (!checkBrowserCompatibility()) {
-	        showBrowserWarning();
-	        return false;
-	    }
-	    
-	    try {
-	        wakeWordDetector = new WakeWordDetector();
-	        
-	        // Attendre que l'initialisation soit terminée
-	        await wakeWordDetector.initialize();
-	        
-	        console.log('✅ Détecteur de mot-clé prêt');
-	        setupVoiceControls();
-	        
-	        return true;
-	    } catch (error) {
-	        console.error('❌ Erreur initialisation reconnaissance vocale:', error);
-	        return false;
-	    }
-	}
-	
-	// Vérification de compatibilité navigateur
-	function checkBrowserCompatibility() {
-	    const hasWebSocket = 'WebSocket' in window;
-	    const hasSpeechRecognition = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
-	    const hasMediaDevices = 'mediaDevices' in navigator && 'getUserMedia' in navigator.mediaDevices;
-	    
-	    console.log('🔍 Compatibilité:', {
-	        webSocket: hasWebSocket,
-	        speechRecognition: hasSpeechRecognition,
-	        mediaDevices: hasMediaDevices
-	    });
-	    
-	    return hasWebSocket && hasSpeechRecognition && hasMediaDevices;
-	}
-
-	// Affichage avertissement compatibilité
-	function showBrowserWarning() {
-	    const warning = document.getElementById('browser-warning');
-	    if (warning) {
-	        warning.style.display = 'block';
-	    }
-	}
-
-	// Configuration des contrôles vocaux
-	function setupVoiceControls() {
-	    // Bouton démarrer
-	    const startBtn = document.getElementById('start-listening');
-	    if (startBtn) {
-	        startBtn.addEventListener('click', () => {
-	            if (wakeWordDetector) {
-	                wakeWordDetector.startListening();
-	            }
-	        });
-	    }
-	    
-	    // Bouton arrêter
-	    const stopBtn = document.getElementById('stop-listening');
-	    if (stopBtn) {
-	        stopBtn.addEventListener('click', () => {
-	            if (wakeWordDetector) {
-	                wakeWordDetector.stopListening();
-	            }
-	        });
-	    }
-	    
-	    // Bouton paramètres
-	    const settingsBtn = document.getElementById('voice-settings');
-	    if (settingsBtn) {
-	        settingsBtn.addEventListener('click', () => {
-	            const panel = document.getElementById('voice-settings-panel');
-	            if (panel) {
-	                panel.classList.toggle('open');
-	            }
-	        });
-	    }
-	    
-	    // Fermer paramètres
-	    const closeBtn = document.getElementById('close-settings');
-	    if (closeBtn) {
-	        closeBtn.addEventListener('click', () => {
-	            const panel = document.getElementById('voice-settings-panel');
-	            if (panel) {
-	                panel.classList.remove('open');
-	            }
-	        });
-	    }
-	    
-	    // Slider confiance
-	    const slider = document.getElementById('confidence-slider');
-	    const valueSpan = document.getElementById('confidence-value');
-	    if (slider && valueSpan) {
-	        slider.addEventListener('input', (e) => {
-	            valueSpan.textContent = e.target.value;
-	            updateVoiceConfig();
-	        });
-	    }
-	    
-	    // Autres contrôles
-	    ['wake-word-input', 'language-select', 'continuous-listening', 'debug-mode'].forEach(id => {
-	        const element = document.getElementById(id);
-	        if (element) {
-	            element.addEventListener('change', updateVoiceConfig);
-	        }
-	    });
-	}
-
-	// Mise à jour configuration vocale
-	function updateVoiceConfig() {
-	    if (!wakeWordDetector || !wakeWordDetector.speechService) return;
-	    
-	    const config = {
-	        wakeWord: document.getElementById('wake-word-input')?.value || 'Angel',
-	        language: document.getElementById('language-select')?.value || 'fr-FR',
-	        confidenceThreshold: parseFloat(document.getElementById('confidence-slider')?.value || '0.7'),
-	        continuous: document.getElementById('continuous-listening')?.checked !== false
-	    };
-	    
-	    wakeWordDetector.speechService.updateConfig(config);
-	    console.log('🔧 Configuration vocale mise à jour:', config);
-	}
-
-	// Fonction de nettoyage
-	function cleanupVoiceRecognition() {
-	    if (wakeWordDetector) {
-	        wakeWordDetector.destroy();
-	        wakeWordDetector = null;
-	    }
-	}
-
-	// Extension de l'API AngelAvatar
-	window.AngelAvatar.voice = {
-	    start: () => wakeWordDetector?.startListening(),
-	    stop: () => wakeWordDetector?.stopListening(),
-	    getStatus: () => wakeWordDetector?.getStatus(),
-	    isSupported: () => checkBrowserCompatibility()
-	};
-
-	// Initialisation au chargement de la page
-	document.addEventListener('DOMContentLoaded', function() {
-	    console.log('📄 DOM chargé, initialisation reconnaissance vocale...');
-	    
-	    // Attendre un peu que tout soit chargé
-	    setTimeout(() => {
-	        initializeVoiceRecognition();
-	    }, 1000);
-	});
-
-	// Nettoyage à la fermeture
-	window.addEventListener('beforeunload', () => {
-	    cleanupVoiceRecognition();
-	});
-
-	console.log('🎭 Extensions vocales ajoutées à avatar.html');
-	</script>
+    
+    <!-- Auto-démarrage de l'écoute continue -->
+    <script type="text/javascript">
+        // Démarrage automatique de l'écoute continue
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('📄 DOM chargé, préparation auto-démarrage...');
+            
+            // Attendre que tous les systèmes soient chargés
+            setTimeout(() => {
+                if (window.ANGEL_CONFIG.autoStartListening) {
+                    console.log('🎤 Auto-démarrage de l\'écoute continue...');
+                    
+                    // Vérifier les permissions microphone
+                    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                        navigator.mediaDevices.getUserMedia({ audio: true })
+                            .then(() => {
+                                console.log('✅ Permission microphone accordée');
+                                
+                                // Démarrer l'écoute continue
+                                if (window.continuousVoiceManager) {
+                                    window.continuousVoiceManager.startContinuousListening();
+                                } else {
+                                    console.log('⏳ ContinuousVoiceManager pas encore prêt, retry...');
+                                    setTimeout(() => {
+                                        if (window.continuousVoiceManager) {
+                                            window.continuousVoiceManager.startContinuousListening();
+                                        }
+                                    }, 2000);
+                                }
+                            })
+                            .catch(error => {
+                                console.warn('⚠️ Permission microphone refusée:', error);
+                                
+                                // Afficher un message à l'utilisateur
+                                const statusElement = document.getElementById('speech-status');
+                                if (statusElement) {
+                                    statusElement.textContent = '🎤 Cliquez pour autoriser l\'accès au microphone';
+                                    statusElement.className = 'speech-status error';
+                                    statusElement.onclick = () => {
+                                        window.AngelAvatar.voice.startListening();
+                                    };
+                                }
+                            });
+                    }
+                }
+            }, 2000);
+        });
+        
+        // Message de bienvenue après initialisation
+        setTimeout(() => {
+            if (window.AngelAvatar && window.ANGEL_CONFIG.autoStartListening) {
+                const welcomeMessage = "Bonjour ! Je suis Angèle, votre assistante virtuelle. Je vous écoute en permanence. Dites simplement 'Angèle' suivi de votre question.";
+                
+                // Attendre un peu pour que l'écoute soit active
+                setTimeout(() => {
+                    window.AngelAvatar.voice.speak(welcomeMessage, 'friendly');
+                }, 3000);
+            }
+        }, 5000);
+        
+        console.log('🚀 Enhanced Avatar System prêt');
+    </script>
 </body>
 </html>
