@@ -580,21 +580,19 @@ class WakeWordDetector {
     }
 }
 
-// Export global pour continuous-voice-manager
+// Créer une instance globale
+window.WakeWordDetector = new WakeWordDetector();
+
+// Export global pour continuous-voice-manager (connecté à la vraie instance)
 window.wakeWordDetector = {
     startListening: function() {
-        // Utiliser votre code existant de wake-word-detector
-        if (window.WakeWordDetector && typeof window.WakeWordDetector.startListening === 'function') {
-            return window.WakeWordDetector.startListening();
-        }
-        console.log('🎤 Wake word detector démarré (fallback)');
-        return Promise.resolve();
+        console.log('🎤 Démarrage wake word detector avec instance réelle');
+        return window.WakeWordDetector.startListening();
     },
     stopListening: function() {
-        if (window.WakeWordDetector && typeof window.WakeWordDetector.stopListening === 'function') {
-            return window.WakeWordDetector.stopListening();
-        }
-        console.log('🛑 Wake word detector arrêté (fallback)');
-        return Promise.resolve();
+        console.log('🛑 Arrêt wake word detector');
+        return window.WakeWordDetector.stopListening();
     }
 };
+
+console.log('✅ WakeWordDetector instance créée et disponible globalement');

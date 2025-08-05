@@ -8,7 +8,7 @@ class SpeechRecognitionService {
         this.isListening = false;
         this.isWakeWordMode = true;
         this.config = {
-            wakeWord: 'Angel',
+            wakeWord: 'Angèle',
             language: 'fr-FR',
             continuous: true,
             confidenceThreshold: 0.7
