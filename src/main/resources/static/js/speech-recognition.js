@@ -322,13 +322,18 @@ class SpeechRecognitionService {
      * Passe en mode commande.
      */
     startCommandMode() {
+        console.log('🎤 Passage en mode COMMANDE');
         this.isWakeWordMode = false;
-        this.recognition.continuous = false;
-        this.stopListening();
+        // GARDER continuous = true pour l'écoute continue
+        // this.recognition.continuous = false;  // ← SUPPRIMER
         
-        setTimeout(() => {
-            this.startListening();
-        }, 100);
+        // NE PAS arrêter/redémarrer, juste changer le mode
+        // this.stopListening();                 // ← SUPPRIMER
+        // setTimeout(() => {
+        //     this.startListening();
+        // }, 100);
+        
+        console.log('✅ Mode commande actif, écoute des instructions...');
     }
     
     /**
@@ -478,7 +483,6 @@ class SpeechRecognitionService {
      * Gère les erreurs de reconnaissance.
      */
     handleError(event) {
-        this.restartAttempts++;
         
         switch (event.error) {
             case 'network':
@@ -489,8 +493,13 @@ class SpeechRecognitionService {
                 this.triggerCallback('error', 'Accès au microphone refusé');
                 return;
             case 'no-speech':
-                console.log('⚠️ Aucune parole détectée');
-                break;
+                console.log('⚠️ Aucune parole détectée  - redémarrage silencieux');
+                if (this.isWakeWordMode) {
+                    setTimeout(() => {
+                        this.startListening();
+                    }, 1000);
+                }
+                return;
             case 'aborted':
                 console.log('⚠️ Reconnaissance interrompue');
                 break;
@@ -498,6 +507,7 @@ class SpeechRecognitionService {
                 console.error('❌ Erreur de reconnaissance:', event.error);
         }
         
+        this.restartAttempts++;
         this.triggerCallback('error', event.error);
     }
     

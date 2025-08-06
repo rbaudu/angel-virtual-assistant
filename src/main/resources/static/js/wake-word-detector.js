@@ -259,7 +259,10 @@ class WakeWordDetector {
                 case 'error':
                     this.handleServerError(message);
                     break;
-                    
+                case 'AVATAR_SPEAK':
+                    this.handleAvatarSpeak(message);
+                    break;
+                           
                 case 'pong':
                     // Réponse au ping
                     break;
@@ -321,13 +324,7 @@ class WakeWordDetector {
     onWakeWordDetected(data) {
         console.log('🎯 Mot-clé détecté:', data);
         
-        // Envoyer au serveur
-        this.sendMessage('wake_word_detected', {
-            word: data.word,
-            transcript: data.transcript,
-            confidence: data.confidence
-        });
-        
+            
         // Indication visuelle
         this.showWakeWordDetected();
         
@@ -335,7 +332,20 @@ class WakeWordDetector {
         if (this.speechService) {
             this.speechService.startCommandMode();
         }
+
         this.showListeningStatus('Que puis-je faire pour vous ?');
+
+        // Envoyer au serveur SI connecté en arrière plan
+        if (this.isConnected) {
+            this.sendMessage('wake_word_detected', {
+                word: data.word,
+                transcript: data.transcript,
+                confidence: data.confidence
+            });
+        } else {
+            console.log('📤 Détection locale (serveur déconnecté)');
+        }
+        
     }
     
     /**
@@ -395,6 +405,22 @@ class WakeWordDetector {
         this.showSpeechError(error);
     }
     
+    /**
+     * Gère les messages reçus du serveur.
+     */
+    handleAvatarSpeak(message) {
+        console.log('🗣️ Message vocal reçu du backend:', message);
+        
+        // Faire parler l'avatar
+        if (window.AngelAvatar && window.AngelAvatar.voice && window.AngelAvatar.voice.speak) {
+            window.AngelAvatar.voice.speak(message.text, message.emotion || 'neutral');
+        } else if (window.enhancedSpeechIntegration) {
+            window.enhancedSpeechIntegration.speakWithQueue(message.text, message.emotion || 'neutral');
+        } else {
+            console.warn('⚠️ Aucun système de synthèse vocale disponible');
+        }
+    }
+
     /**
      * Gère les erreurs du serveur.
      */
