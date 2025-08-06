@@ -262,7 +262,19 @@ class WakeWordDetector {
                 case 'AVATAR_SPEAK':
                     this.handleAvatarSpeak(message);
                     break;
-                           
+                case 'SHOW_CONTROLS':
+                    console.log('👁️ Commande affichage contrôles reçue');
+                    if (window.continuousVoiceManager) {
+                        window.continuousVoiceManager.showControls();
+                    }
+                    break;
+                    
+                case 'HIDE_CONTROLS':
+                    console.log('🙈 Commande masquage contrôles reçue');
+                    if (window.continuousVoiceManager) {
+                        window.continuousVoiceManager.hideControls();
+                    }
+                    break;                           
                 case 'pong':
                     // Réponse au ping
                     break;

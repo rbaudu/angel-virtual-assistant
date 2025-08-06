@@ -494,9 +494,9 @@ class SpeechRecognitionService {
                 return;
             case 'no-speech':
                 console.log('⚠️ Aucune parole détectée  - redémarrage silencieux');
-                if (this.isWakeWordMode) {
+                if (this.isWakeWordMode && !this.isListening) {
                     setTimeout(() => {
-                        this.startListening();
+                        if (!this.isListening) this.startListening();
                     }, 1000);
                 }
                 return;

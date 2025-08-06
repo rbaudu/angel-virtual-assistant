@@ -1,14 +1,13 @@
 package com.angel.voice;
 
-import com.angel.config.ConfigManager;
-import com.angel.util.LogUtil;
-import org.springframework.stereotype.Component;
-
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import org.springframework.stereotype.Component;
+
+import com.angel.config.ConfigManager;
+import com.angel.util.LogUtil;
 
 @Component  
 public class WakeWordDetector {

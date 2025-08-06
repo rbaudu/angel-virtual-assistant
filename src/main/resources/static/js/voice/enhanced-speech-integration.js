@@ -170,32 +170,21 @@ class EnhancedSpeechIntegration {
      * Intercepte les messages WebSocket existants
      */
     interceptWebSocketMessages() {
-        // Chercher les WebSockets possibles
-        const possibleSockets = [
-            window.voiceWebSocket,
-            window.wakeWordDetector?.websocket,
-            window.websocket,
-            window.ws
-        ];
-        
-        for (const socket of possibleSockets) {
-            if (socket && socket.readyState === WebSocket.OPEN) {
-                console.log('🔌 WebSocket trouvé pour interception');
-                
-                const originalOnMessage = socket.onmessage;
-                socket.onmessage = (event) => {
-                    const handled = this.handleWebSocketMessage(event.data);
-                    if (!handled && originalOnMessage) {
-                        originalOnMessage(event);
-                    }
-                };
-                
-                return;
-            }
+        if (window.WakeWordDetector && window.WakeWordDetector.websocket) {
+            const socket = window.WakeWordDetector.websocket;
+            console.log('🔌 WebSocket trouvé dans WakeWordDetector');
+            
+            const originalOnMessage = socket.onmessage;
+            socket.onmessage = (event) => {
+                const handled = this.handleWebSocketMessage(event.data);
+                if (!handled && originalOnMessage) {
+                    originalOnMessage.call(socket, event);
+                }
+            };
+            return;
         }
         
-        // Réessayer plus tard
-        setTimeout(() => this.interceptWebSocketMessages(), 2000);
+        console.log('⚠️ Aucun WebSocket trouvé pour interception TTS');
     }
     
     /**
@@ -250,7 +239,10 @@ class EnhancedSpeechIntegration {
         }
         
         console.log(`📝 Ajouté à la queue TTS (${this.speechQueue.length} éléments):`, text);
-        
+        if (!this.isProcessingQueue) {
+            console.log('🚀 Démarrage forcé du processeur');
+            setTimeout(() => this.startQueueProcessor(), 100);
+        }      
         return new Promise((resolve, reject) => {
             speechItem.resolve = resolve;
             speechItem.reject = reject;
@@ -261,46 +253,59 @@ class EnhancedSpeechIntegration {
      * Démarre le processeur de queue
      */
     startQueueProcessor() {
-        if (this.isProcessingQueue) return;
+        console.log('🚀 DÉMARRAGE PROCESSEUR QUEUE TTS');
+        
+        if (this.isProcessingQueue) {
+            console.log('⚠️ Processeur déjà en cours');
+            return;
+        }
         
         this.isProcessingQueue = true;
         
         const processQueue = async () => {
+            console.log(`📋 Traitement queue: ${this.speechQueue.length} éléments`);
+            
             while (this.speechQueue.length > 0 && this.isEnabled) {
                 const item = this.speechQueue.shift();
+                console.log(`🎯 TRAITEMENT ITEM TTS: "${item.text}"`);
                 
                 try {
                     await this.speakNow(item.text, item.emotion);
+                    console.log(`✅ TTS TERMINÉ: "${item.text}"`);
                     if (item.resolve) item.resolve();
                     
                 } catch (error) {
-                    console.error(`❌ Erreur synthèse vocale pour "${item.text}":`, error);
+                    console.error(`❌ Erreur TTS pour "${item.text}":`, error);
                     
                     if (item.retries < this.config.maxRetries) {
                         item.retries++;
                         console.log(`🔄 Retry ${item.retries}/${this.config.maxRetries}`);
-                        this.speechQueue.unshift(item); // Remettre en début de queue
+                        this.speechQueue.unshift(item);
                         await this.delay(this.config.retryDelay);
                     } else {
-                        console.error('❌ Échec définitif de synthèse:', error);
+                        console.error('❌ Échec définitif TTS:', error);
                         if (item.reject) item.reject(error);
                     }
                 }
                 
-                // Petite pause entre les éléments
                 await this.delay(200);
             }
             
+            console.log('🏁 PROCESSEUR QUEUE TERMINÉ');
             this.isProcessingQueue = false;
             
-            // Redémarrer le processeur s'il y a de nouveaux éléments
             if (this.speechQueue.length > 0) {
+                console.log('🔄 Redémarrage processeur pour nouveaux éléments');
                 setTimeout(() => this.startQueueProcessor(), 100);
             }
         };
         
-        processQueue();
+        processQueue().catch(error => {
+            console.error('❌ ERREUR CRITIQUE PROCESSEUR:', error);
+            this.isProcessingQueue = false;
+        });
     }
+    
     
     /**
      * Synthèse vocale immédiate
