@@ -7,7 +7,7 @@ Un assistant virtuel intelligent avec avatar 3D et reconnaissance vocale continu
 Angel Virtual Assistant accompagne les personnes dans leur quotidien en proposant des activités adaptées à leur contexte. Le système combine :
 
 - **Avatar 3D interactif** : Avatar Ready Player Me avec animations et synthèse vocale
-- **Reconnaissance vocale continue** : Activation par le mot-clé "Angèle" 
+- **Reconnaissance vocale continue** : Activation par le mot-clé "Angel" 
 - **Détection d'activités** : Intégration avec Angel-server-capture (27 types d'activités)
 - **Interface web** : Dashboard de contrôle accessible via navigateur
 
@@ -26,24 +26,24 @@ mvn clean package
 open http://localhost:8081/angel
 
 # 4. Tester la reconnaissance vocale
-# Dites "Angèle" puis "quelle heure est-il ?"
+# Dites "Angel" puis "quelle heure est-il ?"
 ```
 
 ## 🎤 Commandes Vocales
 
 ### Activation
-- **Mot-clé** : "Angèle" (variantes : "Angel", "Ange")
+- **Mot-clé** : "Angel" (variantes : "Angèle", "Ange")
 - **Mode** : Écoute continue en arrière-plan
 
 ### Commandes Supportées
 ```
-"Angèle, quelle heure est-il ?"        → Heure actuelle
-"Angèle, quel jour sommes-nous ?"      → Date du jour  
-"Angèle, quel temps fait-il ?"         → Info météo
-"Angèle, qui es-tu ?"                  → Présentation
-"Angèle, bonjour"                      → Salutation adaptée
-"Angèle, affiche la configuration"     → Afficher contrôles
-"Angèle, masque la configuration"      → Masquer contrôles
+"Angel, quelle heure est-il ?"        → Heure actuelle
+"Angel, quel jour sommes-nous ?"      → Date du jour  
+"Angel, quel temps fait-il ?"         → Info météo
+"Angel, qui es-tu ?"                  → Présentation
+"Angel, bonjour"                      → Salutation adaptée
+"Angel, affiche la configuration"     → Afficher contrôles
+"Angel, masque la configuration"      → Masquer contrôles
 ```
 
 ## 🎭 Avatar 3D
@@ -70,7 +70,7 @@ angel-virtual-assistant/
 ├── config/                         # Configuration centralisée
 │   ├── application.properties      # Config normale
 │   ├── application-test.properties # Config test
-│   └── avatar-config.json         # Config avatar/voix
+│   └── avatar.properties          # Config avatar/voix
 ├── src/main/
 │   ├── java/com/angel/
 │   │   ├── core/                  # Application Spring Boot
@@ -83,7 +83,7 @@ angel-virtual-assistant/
 │       ├── static/js/
 │       │   ├── avatar/            # Scripts avatar 3D
 │       │   ├── voice/             # Scripts reconnaissance vocale
-│       │   └── core/              # Utilitaires
+│       │   └── speech-recognition.js
 │       ├── static/css/            # Styles
 │       └── templates/             # Pages HTML
 └── docs/                          # Documentation
@@ -91,44 +91,33 @@ angel-virtual-assistant/
 
 ## ⚙️ Configuration
 
-### Reconnaissance Vocale (`config/avatar-config.json`)
-```json
-{
-  "voice": {
-    "wakeWord": {
-      "enabled": true,
-      "words": ["angel", "angèle", "angelo"],
-      "threshold": 0.7
-    },
-    "speech": {
-      "synthesis": {
-        "voice": "Microsoft Hortense - French (France) (fr-FR)",
-        "rate": 1.0,
-        "volume": 0.8
-      },
-      "recognition": {
-        "language": "fr-FR",
-        "continuous": true
-      }
-    }
-  }
-}
+### Reconnaissance Vocale
+```properties
+# Wake word "Angel"
+voice.wake-word.enabled=true
+voice.wake-word.words=angel,angèle,ange
+voice.wake-word.threshold=0.7
+
+# Synthèse vocale
+voice.speech.synthesis.voice=Microsoft Hortense - French (France) (fr-FR)
+voice.speech.synthesis.rate=1.0
+voice.speech.synthesis.volume=0.8
 ```
 
-### Avatar (`config/avatar-config.json`)
-```json
-{
-  "avatar": {
-    "readyPlayerMe": {
-      "enabled": true,
-      "defaultAvatarId": "687f66fafe8107131699bf7b"
-    },
-    "animations": {
-      "speaking": { "enabled": true, "intensity": 0.7 },
-      "emotions": { "enabled": true, "transitions": true }
-    }
-  }
-}
+### Avatar
+```properties
+# Ready Player Me
+avatar.ready-player-me.enabled=true
+avatar.ready-player-me.default-id=687f66fafe8107131699bf7b
+
+# Rendu 3D
+avatar.rendering.quality=medium
+avatar.rendering.antialiasing=true
+avatar.rendering.shadows=true
+
+# Animations
+avatar.animations.speaking.enabled=true
+avatar.animations.emotions.enabled=true
 ```
 
 ## 🛠️ Installation
@@ -259,11 +248,21 @@ window.enhancedSpeechIntegration.speakNow("Test", "neutral")
 
 ## 📚 Documentation Technique
 
-- **[VOICE_RECOGNITION.md](docs/VOICE_RECOGNITION.md)** : Système vocal complet
-- **[AVATAR_3D.md](docs/AVATAR_3D.md)** : Avatar et rendu 3D
-- **[WEB_INTERFACE.md](docs/WEB_INTERFACE.md)** : Interface web
-- **[TEST_MODE.md](docs/TEST_MODE.md)** : Mode test
-- **[CONFIGURATION.md](docs/CONFIGURATION.md)** : Configuration détaillée
+### Interface et Configuration
+- **[Interface Web](docs/WEB_INTERFACE.md)** - Interface Spring Boot, API REST, WebSocket, dashboard
+- **[Configuration](docs/CONFIGURATION.md)** - Configuration centralisée, profils Spring Boot
+
+### Avatar 3D et Rendu
+- **[Avatar 3D](docs/AVATAR_3D.md)** - Système d'avatar 3D avec Three.js et rendu temps réel
+- **[Guide d'Intégration Avatar](docs/AVATAR_INTEGRATION_GUIDE.md)** - Guide pratique d'intégration complète
+- **[Ready Player Me](docs/READY_PLAYER_ME_INTEGRATION.md)** - Intégration Ready Player Me (API, modèles)
+
+### Reconnaissance Vocale
+- **[Reconnaissance Vocale](docs/VOICE_RECOGNITION.md)** - Système vocal complet (synthèse, reconnaissance)
+- **[Wake Word "Angel"](docs/WAKE_WORD_RECOGNITION.md)** - Système de détection "Angel" (algorithmes)
+
+### Mode Test et Développement
+- **[Mode Test](docs/TEST_MODE.md)** - Mode test autonome avec dashboard de contrôle
 
 ## 🎯 Types d'Activités Détectées
 
@@ -352,7 +351,7 @@ rm -rf logs/*.log               # Supprime les anciens logs
 
 ### Version Actuelle (1.1.0)
 - Avatar 3D avec Ready Player Me
-- Reconnaissance vocale continue "Angèle"
+- Reconnaissance vocale continue "Angel"
 - Synthèse vocale émotionnelle
 - Interface web complète
 - Mode test autonome
@@ -365,3 +364,5 @@ rm -rf logs/*.log               # Supprime les anciens logs
 ---
 
 Angel Virtual Assistant offre une expérience d'assistant virtuel complète avec avatar 3D photoréaliste et interaction vocale naturelle en français. 🎭🎤
+
+**Pour plus de détails** : Consultez la [Documentation Complète](docs/) organisée par composant et cas d'usage.
