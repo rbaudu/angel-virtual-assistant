@@ -1,0 +1,108 @@
+{
+  "aiSelectionConfig": {
+    "selectionMode": "weighted_random",
+    "fallbackOnError": true,
+    "maxRetries": 2,
+    "timeoutMs": 5000,
+    "weightingStrategy": "inverse_priority"
+  },
+  
+  "questionAnalysis": {
+    "complexityThreshold": 3,
+    "complexityKeywords": [
+      "analyse", "explique", "pourquoi", "comment", "compare", 
+      "différence", "avantage", "inconvénient", "stratégie",
+      "philosophie", "éthique", "complexe", "détaillé",
+      "approfondi", "nuance", "contexte", "implication",
+      "développe", "argumente", "justifie", "critique"
+    ],
+    "simpleKeywords": [
+      "heure", "météo", "température", "qui", "quoi", "où", "quand",
+      "combien", "définition", "signifie", "ouvre", "ferme"
+    ]
+  },
+
+  "audioProviders": {
+    "openai_realtime": {
+      "enabled": true,
+      "priority": 1,
+      "weight": 50,
+      "apiKey": "${OPENAI_API_KEY}",
+      "model": "gpt-4o-realtime-preview",
+      "voice": "nova",
+      "responseFormat": "audio",
+      "maxTokens": 150,
+      "temperature": 0.7
+    },
+    "gemini_live": {
+      "enabled": true,
+      "priority": 2,
+      "weight": 30,
+      "apiKey": "${GOOGLE_API_KEY}",
+      "model": "gemini-pro-live",
+      "voice": "fr-FR-Wavenet-C",
+      "responseFormat": "audio",
+      "maxTokens": 150,
+      "temperature": 0.7
+    },
+    "copilot_speech": {
+      "enabled": true,
+      "priority": 3,
+      "weight": 20,
+      "apiKey": "${AZURE_API_KEY}",
+      "endpoint": "${AZURE_ENDPOINT}",
+      "voice": "fr-FR-DeniseNeural",
+      "responseFormat": "audio",
+      "maxTokens": 150,
+      "temperature": 0.7
+    }
+  },
+
+  "textProviders": {
+    "claude": {
+      "enabled": true,
+      "priority": 1,
+      "weight": 60,
+      "apiKey": "${ANTHROPIC_API_KEY}",
+      "model": "claude-3-5-sonnet-20241022",
+      "maxTokens": 300,
+      "temperature": 0.3,
+      "ttsProvider": "azure",
+      "voice": "fr-FR-DeniseNeural"
+    },
+    "mistral": {
+      "enabled": true,
+      "priority": 2,
+      "weight": 40,
+      "apiKey": "${MISTRAL_API_KEY}",
+      "model": "mistral-large-latest",
+      "maxTokens": 300,
+      "temperature": 0.3,
+      "ttsProvider": "azure",
+      "voice": "fr-FR-HenriNeural"
+    }
+  },
+
+  "ttsServices": {
+    "azure": {
+      "apiKey": "${AZURE_SPEECH_KEY}",
+      "region": "${AZURE_REGION}",
+      "defaultVoice": "fr-FR-DeniseNeural",
+      "speed": 1.0,
+      "pitch": "default"
+    },
+    "google": {
+      "apiKey": "${GOOGLE_TTS_KEY}",
+      "defaultVoice": "fr-FR-Wavenet-C",
+      "speed": 1.0,
+      "pitch": 0.0
+    }
+  },
+
+  "statisticsTracking": {
+    "enabled": true,
+    "logSelections": true,
+    "trackPerformance": true,
+    "adjustWeightsBasedOnSuccess": false
+  }
+}

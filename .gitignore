@@ -1,3 +1,4 @@
 /target/
 /logs/
 angel-db.mv.db
+.env

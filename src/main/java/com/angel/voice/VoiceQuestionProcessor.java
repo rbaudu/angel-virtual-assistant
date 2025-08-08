@@ -14,12 +14,15 @@ import com.angel.avatar.WebSocketService;
 import com.angel.config.ConfigManager;
 import com.angel.ui.AvatarController;
 import com.angel.util.LogUtil;
+import com.angel.voice.model.AIProvider;
+import com.angel.voice.service.AIProviderService;
+import com.angel.voice.service.AISelectionService;
+
 
 /**
- * Version améliorée du processeur de questions vocales avec synthèse vocale intégrée.
+ * Processeur de questions vocales avec synthèse vocale intégrée.
  * Compatible avec l'API existante d'AngelApplication.
  * 
- * Fichier : src/main/java/com/angel/voice/EnhancedVoiceQuestionProcessor.java
  */
 @Component
 public class VoiceQuestionProcessor {
@@ -34,7 +37,13 @@ public class VoiceQuestionProcessor {
     
     @Autowired
     private WebSocketService webSocketService;
+   
+    @Autowired
+    private AISelectionService aiSelectionService;
     
+    @Autowired
+    private AIProviderService aiProviderService;
+
     /**
      * Génère le message d'activation personnalisé (compatible avec AngelApplication).
      */
@@ -105,7 +114,7 @@ public class VoiceQuestionProcessor {
     }
     
     /**
-     * NOUVELLE MÉTHODE: Envoie un message pour synthèse vocale via WebSocket.
+     * Envoie un message pour synthèse vocale via WebSocket.
      */
     private void sendSpeechMessage(String text, String emotion) {
         if (!configManager.getBoolean("voice.speech.enabled", true)) {
@@ -189,6 +198,7 @@ public class VoiceQuestionProcessor {
     
     /**
      * Analyse l'entrée et génère une réponse appropriée.
+     * fallback vers l'IA pour les questions non prédéfinies
      */
     private String analyzeAndAnswer(String input) {
         String lowerInput = input.toLowerCase().trim();
@@ -236,12 +246,52 @@ public class VoiceQuestionProcessor {
         
         // Réponse générale
         if (input.trim().endsWith("?")) {
-            return "C'est une excellente question ! Je réfléchis encore à ce type de réponse.";
+             return processWithAI(input);
         } else {
             return "Je vous ai bien entendu. Comment puis-je vous être utile ?";
         }
     }
-    
+
+    /**
+     * Traite la question avec l'IA sélectionnée.
+     */
+    private String processWithAI(String question) {
+        try {
+            LOGGER.log(Level.INFO, "🤖 Question non prédéfinie, utilisation de l'IA : {0}", question);
+            
+            // 1. Analyser la complexité de la question
+            AISelectionService.QuestionType questionType = aiSelectionService.analyzeQuestionComplexity(question);
+            LOGGER.log(Level.INFO, "📊 Type de question détecté : {0}", questionType);
+            
+            // 2. Sélectionner l'IA appropriée
+            AIProvider selectedProvider = aiSelectionService.selectProvider(questionType);
+            LOGGER.log(Level.INFO, "🎯 IA sélectionnée : {0}", selectedProvider.getName());
+            
+            // 3. Appeler l'IA sélectionnée
+            String aiResponse = aiProviderService.getResponse(question, selectedProvider);
+            
+            // 4. Si besoin de TTS, le convertir
+            if (selectedProvider.needsTTS()) {
+                LOGGER.log(Level.INFO, "🔊 Conversion TTS avec : {0}", selectedProvider.getTtsProvider());
+                // La réponse texte sera synthétisée par sendSpeechMessage()
+            }
+            
+            LOGGER.log(Level.INFO, "✅ Réponse IA reçue : {0}", 
+                      aiResponse.length() > 100 ? aiResponse.substring(0, 100) + "..." : aiResponse);
+            
+            return aiResponse;
+            
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "❌ Erreur lors de l'appel IA : {0}", e.getMessage());
+            
+            // Fallback vers réponse générale en cas d'erreur IA
+            if (question.trim().endsWith("?")) {
+                return "C'est une excellente question ! Mes services pour y répondre ne sont malheureusementpas disponibles pour le moment. Merci de réessayer plus tard.";
+            } else {
+                return "Je vous ai bien entendu. Mes services avancés ne sont pas disponibles actuellement, mais comment puis-je vous être utile autrement ?";
+            }
+        }
+    }
     /**
      * Vérifie si l'entrée contient certains mots-clés.
      */

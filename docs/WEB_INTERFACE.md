@@ -1,313 +1,250 @@
-# Interface Web Angel Virtual Assistant
+# Interface Web - Angel Virtual Assistant
 
-Guide complet de l'interface web intégrée avec Spring Boot.
+Guide de l'interface web basée sur Spring Boot pour l'accès navigateur à l'assistant virtuel.
 
-## Vue d'ensemble
+## 🌐 Vue d'Ensemble
 
-Angel Virtual Assistant dispose maintenant d'une interface web complète basée sur Spring Boot qui permet :
+L'interface web permet d'accéder à Angel Virtual Assistant via navigateur avec :
 
-- 🎭 **Interface Avatar** : Interaction avec l'avatar via navigateur web
-- 🎮 **Dashboard de Test** : Contrôle complet du mode test
-- ⚙️ **Configuration Web** : Gestion des paramètres (à venir)
-- 📊 **Monitoring** : Statistiques et logs en temps réel
-- 📱 **Interface responsive** : Compatible desktop et mobile
+- **Interface Avatar** : Page principale d'interaction avec l'avatar
+- **Dashboard Test** : Contrôles complets pour le mode test
+- **API REST** : Endpoints pour intégration et contrôle programmatique
+- **WebSocket** : Communication temps réel avec l'avatar
+- **Design Responsive** : Compatible desktop, tablette, mobile
 
-## Architecture Web
+## 🏗️ Architecture Web
 
 ### Stack Technique
-
-- **Backend** : Spring Boot 3.2.1 avec Spring MVC
-- **Templates** : Thymeleaf pour le rendu HTML
-- **Frontend** : HTML5, CSS3, JavaScript vanilla
-- **WebSocket** : Communication temps réel avec l'avatar
-- **API REST** : Endpoints pour contrôle programmatique
+- **Backend** : Spring Boot 3.2+ avec Spring MVC
+- **Templates** : Thymeleaf pour rendu HTML
+- **Frontend** : HTML5, CSS3, JavaScript ES6+
+- **Communication** : WebSocket + REST API
+- **Ressources** : Organisation modulaire par fonctionnalité
 
 ### Structure des Ressources
-
 ```
 src/main/resources/
-├── static/                     # Ressources statiques
+├── templates/
+│   ├── avatar.html              # Page principale avatar
+│   ├── test-dashboard.html      # Dashboard mode test  
+│   └── fragments/               # Composants réutilisables
+├── static/
 │   ├── css/
-│   │   ├── avatar.css         # Styles de l'interface avatar
-│   │   ├── test-dashboard.css # Styles du dashboard test
-│   │   └── common.css         # Styles communs
+│   │   ├── avatar.css          # Styles interface avatar
+│   │   ├── test-dashboard.css  # Styles dashboard
+│   │   └── common.css          # Styles partagés
 │   ├── js/
-│   │   ├── avatar.js          # Logique client avatar
-│   │   ├── test-control.js    # Contrôles du mode test
-│   │   └── websocket.js       # Communication WebSocket
-│   └── images/
-│       ├── avatars/           # Images d'avatars
-│       └── icons/             # Icônes de l'interface
-└── templates/                 # Templates Thymeleaf
-    ├── avatar.html           # Page principale avatar
-    ├── test-dashboard.html   # Dashboard de test
-    ├── test-help.html        # Aide du mode test
-    └── layout/
-        └── main.html         # Layout principal
+│   │   ├── avatar/             # Scripts avatar 3D
+│   │   ├── voice/              # Scripts reconnaissance vocale
+│   │   ├── test-control.js     # Contrôles mode test
+│   │   └── speech-recognition.js
+│   └── assets/                 # Images, icônes, modèles
+└── config/
+    └── avatar.properties       # Config avatar par défaut
 ```
 
-## URLs d'Accès
+## 🌍 URLs et Accès
 
-### Mode Normal (Production)
+### Mode Normal (avec Angel-server-capture)
 - **Port** : 8080
-- **Context-path** : `/angel`
-- **Avatar** : http://localhost:8080/angel/
+- **Context** : `/angel`
+- **Avatar** : http://localhost:8080/angel
 - **Dashboard Test** : http://localhost:8080/angel/test-dashboard
-- **Console H2** : http://localhost:8080/angel/h2-console
 - **API** : http://localhost:8080/angel/api/
+- **Console H2** : http://localhost:8080/angel/h2-console
 
-### Mode Test
-- **Port** : 8081
-- **Context-path** : `/` (racine)
-- **Avatar** : http://localhost:8081/angel et http://localhost:8081/
+### Mode Test (autonome)
+- **Port** : 8081  
+- **Context** : `/` (racine)
+- **Avatar** : http://localhost:8081/angel
 - **Dashboard Test** : http://localhost:8081/test-dashboard
-- **Console H2** : http://localhost:8081/h2-console
 - **API Test** : http://localhost:8081/api/test/
+- **Console H2** : http://localhost:8081/h2-console
 
-## Interface Avatar
+## 📱 Interface Avatar
 
-### Fonctionnalités
+### Page Principale (`/angel`)
+Page d'interaction principale avec l'avatar :
 
-L'interface avatar permet d'interagir directement avec l'assistant virtuel :
-
-#### 1. **Affichage Avatar**
-- Rendu 3D en temps réel
-- Animations faciales synchronisées
-- Expressions émotionnelles
-- Gestures et mouvements
-
-#### 2. **Contrôles Audio**
-- Volume principal
-- Activation/désactivation de la voix
-- Sélection de la voix (à venir)
-
-#### 3. **Interface de Conversation**
-- Zone de chat (à venir)
-- Historique des interactions
-- Reconnaissance vocale (à venir)
-
-#### 4. **Paramètres d'Affichage**
-- Mode plein écran
-- Qualité de rendu
-- Thème d'interface
-
-### Utilisation
-
-```javascript
-// Exemple d'interaction via JavaScript
-const avatar = new AvatarInterface({
-    container: '#avatar-container',
-    websocketUrl: '/ws/avatar',
-    enableVoice: true
-});
-
-// Faire parler l'avatar
-avatar.speak('Bonjour ! Comment allez-vous ?', 'happy');
-
-// Changer l'émotion
-avatar.setEmotion('thoughtful', 0.7);
-
-// Écouter les événements
-avatar.on('speechEnd', () => {
-    console.log('L\\'avatar a fini de parler');
-});
+```html
+<!-- Structure simplifiée -->
+<div id="avatar-container">
+  <!-- Rendu 3D de l'avatar -->
+  <canvas id="avatar-canvas"></canvas>
+  
+  <!-- Contrôles utilisateur -->
+  <div class="avatar-controls">
+    <button id="mute-btn">🔊</button>
+    <button id="settings-btn">⚙️</button>
+    <button id="fullscreen-btn">⛶</button>
+  </div>
+  
+  <!-- Indicateurs d'état -->
+  <div class="status-indicators">
+    <div id="listening-indicator">🎤</div>
+    <div id="speaking-indicator">💬</div>
+  </div>
+</div>
 ```
 
-### Configuration
+### Fonctionnalités Interface
+- **Affichage avatar 3D** : Rendu Three.js temps réel
+- **Contrôles audio** : Volume, mute, configuration voix
+- **Mode plein écran** : Expérience immersive
+- **Indicateurs visuels** : États écoute/parole
+- **Masquage automatique** : Contrôles disparaissent après inactivité
 
-Configuration dans `config/application.properties` :
-
-```properties
-# Avatar Web
-avatar.web.enabled=true
-avatar.web.websocket.path=/ws/avatar
-avatar.web.3d.quality=medium
-avatar.web.voice.enabled=true
-avatar.web.fullscreen.enabled=true
-
-# Performance
-avatar.web.fps.target=30
-avatar.web.render.shadows=true
-avatar.web.render.antialiasing=true
-```
-
-## Dashboard de Test
+## 🎮 Dashboard de Test
 
 ### Sections Principales
 
-#### 1. **Contrôles de Simulation**
-- **Start/Stop** : Démarrage et arrêt de la simulation
-- **Vitesse** : Multiplicateur de vitesse (1x à 10x)
-- **Randomisation** : Niveau d'aléatoire (0% à 100%)
-- **Mode** : Automatique ou manuel
-
-#### 2. **Sélection d'Activité**
-- Liste déroulante avec toutes les 27 activités
-- Niveau de confiance (0% à 100%)
-- Durée personnalisée
-- Application immédiate
-
-#### 3. **Gestion des Scénarios**
-- Chargement de scénarios prédéfinis
-- Création de nouveaux scénarios
-- Import/export de configurations
-- Bibliothèque de scénarios
-
-#### 4. **Statistiques en Temps Réel**
-- Graphique d'activités sur 24h
-- Propositions générées
-- Temps de réponse moyen
-- Taux de confiance
-
-#### 5. **Journal d'Activité**
-- Log en temps réel des événements
-- Filtrage par type (activité, proposition, erreur)
-- Export des logs
-- Recherche dans l'historique
-
-#### 6. **Configuration Test**
-- Paramètres de simulation
-- Intervalles et timeouts
-- Sources de données
-- Mode debug
-
-### Utilisation API
-
-```bash
-# Status du dashboard
-curl http://localhost:8081/api/test/dashboard/status
-
-# Démarrer la simulation
-curl -X POST http://localhost:8081/api/test/simulation/start
-
-# Définir une activité
-curl -X POST http://localhost:8081/api/test/activity/set \
-     -H "Content-Type: application/json" \
-     -d '{
-       "activity": "READING",
-       "confidence": 0.85,
-       "duration": 300000
-     }'
-
-# Charger un scénario
-curl -X POST http://localhost:8081/api/test/scenario/load \
-     -H "Content-Type: application/json" \
-     -d '{"name": "morning_routine"}'
-
-# Obtenir les statistiques
-curl http://localhost:8081/api/test/stats/current
+#### 1. Contrôles de Simulation
+```html
+<div class="simulation-controls">
+  <button id="start-sim">▶️ Start</button>
+  <button id="stop-sim">⏹️ Stop</button>
+  <input type="range" id="speed-slider" min="1" max="10" value="1">
+  <input type="range" id="randomness-slider" min="0" max="100" value="30">
+</div>
 ```
 
-### Configuration
-
-Configuration dans `config/application-test.properties` :
-
-```properties
-# Dashboard Test
-angel.test.dashboard.enabled=true
-angel.test.dashboard.refresh-interval=5000
-angel.test.dashboard.max-log-entries=1000
-angel.test.dashboard.stats.enabled=true
-
-# Simulation
-angel.test.simulation.interval=30000
-angel.test.simulation.randomness=0.3
-angel.test.simulation.speed-multiplier=1.0
+#### 2. Sélection d'Activité
+```html
+<div class="activity-selector">
+  <select id="activity-select">
+    <option value="EATING">Eating</option>
+    <option value="READING">Reading</option>
+    <option value="WATCHING_TV">Watching TV</option>
+    <!-- ... 24 autres activités -->
+  </select>
+  <input type="range" id="confidence-slider" min="0" max="100" value="85">
+  <button id="apply-activity">Apply</button>
+</div>
 ```
 
-## API REST
+#### 3. Journal d'Activité
+```html
+<div class="activity-log">
+  <div class="log-filters">
+    <button class="filter-btn active" data-filter="all">All</button>
+    <button class="filter-btn" data-filter="activity">Activities</button>
+    <button class="filter-btn" data-filter="proposal">Proposals</button>
+  </div>
+  <div id="log-entries"></div>
+</div>
+```
 
-### Endpoints Communs
+#### 4. Statistiques Temps Réel
+```html
+<div class="stats-dashboard">
+  <div class="stat-card">
+    <h3>Activities Today</h3>
+    <span class="stat-value" id="activities-count">0</span>
+  </div>
+  <div class="stat-card">
+    <h3>Proposals Generated</h3>
+    <span class="stat-value" id="proposals-count">0</span>
+  </div>
+</div>
+```
 
-#### Avatar
+## 🔌 API REST
+
+### Endpoints Avatar
 ```http
-GET    /api/avatar/status           # Status de l'avatar
-POST   /api/avatar/speak            # Faire parler l'avatar
-POST   /api/avatar/emotion          # Changer l'émotion
-GET    /api/avatar/config           # Configuration actuelle
-PUT    /api/avatar/config           # Modifier la configuration
-```
+# Status et contrôle avatar
+GET    /api/avatar/status           # État actuel avatar
+POST   /api/avatar/speak            # Faire parler avatar
+POST   /api/avatar/emotion          # Changer émotion
+GET    /api/avatar/config           # Configuration avatar
+PUT    /api/avatar/config           # Modifier configuration
 
-#### Propositions
-```http
-GET    /api/proposals               # Propositions disponibles
-POST   /api/proposals/trigger       # Déclencher une proposition
-GET    /api/proposals/history       # Historique des propositions
-DELETE /api/proposals/history/{id}  # Supprimer une entrée
-```
-
-#### Configuration
-```http
-GET    /api/config                  # Configuration complète
-PUT    /api/config                  # Modifier la configuration
-GET    /api/config/{section}        # Section spécifique
-PUT    /api/config/{section}        # Modifier une section
+# Exemple requête
+POST /api/avatar/speak
+Content-Type: application/json
+{
+  "text": "Bonjour ! Comment allez-vous ?",
+  "emotion": "friendly",
+  "priority": "high"
+}
 ```
 
 ### Endpoints Mode Test
-
-#### Simulation
 ```http
-GET    /api/test/health             # Status du mode test
-POST   /api/test/simulation/start   # Démarrer la simulation
-POST   /api/test/simulation/stop    # Arrêter la simulation
-GET    /api/test/simulation/status  # Status de la simulation
-```
+# Simulation
+GET    /api/test/health             # Santé du système test
+POST   /api/test/simulation/start   # Démarrer simulation
+POST   /api/test/simulation/stop    # Arrêter simulation
+GET    /api/test/simulation/status  # État simulation
 
-#### Activités
-```http
+# Activités
 GET    /api/test/activity/current   # Activité courante
-POST   /api/test/activity/set       # Définir une activité
-GET    /api/test/activity/history   # Historique des activités
-DELETE /api/test/activity/history   # Vider l'historique
+POST   /api/test/activity/set       # Définir activité
+GET    /api/test/activity/history   # Historique activités
+
+# Scénarios
+GET    /api/test/scenarios          # Liste scénarios
+POST   /api/test/scenario/load      # Charger scénario
+POST   /api/test/scenario/create    # Créer scénario
+
+# Statistiques
+GET    /api/test/stats/current      # Stats temps réel
+GET    /api/test/stats/export       # Export données
 ```
 
-#### Scénarios
-```http
-GET    /api/test/scenarios          # Liste des scénarios
-POST   /api/test/scenario/load      # Charger un scénario
-POST   /api/test/scenario/create    # Créer un scénario
-DELETE /api/test/scenario/{name}    # Supprimer un scénario
+### Exemples d'Utilisation API
+```bash
+# Démarrer simulation test
+curl -X POST http://localhost:8081/api/test/simulation/start
+
+# Définir activité READING avec 85% confiance
+curl -X POST http://localhost:8081/api/test/activity/set \
+  -H "Content-Type: application/json" \
+  -d '{
+    "activity": "READING",
+    "confidence": 0.85,
+    "duration": 1800000
+  }'
+
+# Charger scénario routine matinale
+curl -X POST http://localhost:8081/api/test/scenario/load \
+  -H "Content-Type: application/json" \
+  -d '{"name": "morning_routine"}'
+
+# Obtenir statistiques actuelles
+curl http://localhost:8081/api/test/stats/current
 ```
 
-#### Statistiques
-```http
-GET    /api/test/stats/current      # Statistiques actuelles
-GET    /api/test/stats/history      # Historique des statistiques
-GET    /api/test/stats/export       # Export des données
-POST   /api/test/stats/reset        # Reset des statistiques
-```
+## 🔄 Communication WebSocket
 
-## Communication WebSocket
-
-### Avatar WebSocket
-
-L'avatar utilise WebSocket pour la communication temps réel :
-
+### WebSocket Avatar
 ```javascript
-// Connexion WebSocket
-const ws = new WebSocket('ws://localhost:8081/ws/avatar');
+// Connexion WebSocket avatar
+const avatarWs = new WebSocket('ws://localhost:8081/ws/avatar');
 
 // Messages entrants
-ws.onmessage = function(event) {
+avatarWs.onmessage = function(event) {
     const message = JSON.parse(event.data);
     
     switch(message.type) {
         case 'speak':
-            avatar.speak(message.text, message.emotion);
+            // Avatar commence à parler
+            handleAvatarSpeech(message.text, message.emotion);
             break;
-        case 'emotion':
-            avatar.setEmotion(message.emotion, message.intensity);
+        case 'emotion_change':
+            // Changement d'émotion avatar
+            updateAvatarEmotion(message.emotion, message.intensity);
             break;
-        case 'gesture':
-            avatar.playGesture(message.gesture);
+        case 'wake_word_detected':
+            // Mot-clé "Angel" détecté
+            activateListeningMode();
             break;
     }
 };
 
 // Messages sortants
-function sendAvatarCommand(type, data) {
-    ws.send(JSON.stringify({
+function sendToAvatar(type, data) {
+    avatarWs.send(JSON.stringify({
         type: type,
         timestamp: Date.now(),
         ...data
@@ -315,462 +252,368 @@ function sendAvatarCommand(type, data) {
 }
 ```
 
-### Test WebSocket
-
-Communication pour le dashboard de test :
-
+### WebSocket Test Dashboard
 ```javascript
-// Connexion au WebSocket de test
+// Connexion dashboard test
 const testWs = new WebSocket('ws://localhost:8081/ws/test');
 
-// Écouter les mises à jour
+// Écoute mises à jour temps réel
 testWs.onmessage = function(event) {
     const update = JSON.parse(event.data);
     
     switch(update.type) {
         case 'activity_change':
             updateActivityDisplay(update.activity);
+            addLogEntry('activity', `Activity changed to ${update.activity.type}`);
             break;
         case 'proposal_generated':
-            addProposalToLog(update.proposal);
+            updateProposalsCount();
+            addLogEntry('proposal', update.proposal.text);
             break;
-        case 'stats_update':
-            updateStatistics(update.stats);
+        case 'simulation_stats':
+            updateStatsDashboard(update.stats);
             break;
     }
 };
 ```
 
-## Responsive Design
+## 📱 Design Responsive
 
 ### Breakpoints
-
 ```css
-/* Mobile first approach */
-.container {
+/* Configuration responsive */
+.avatar-container {
     width: 100%;
+    height: 400px;
 }
 
-/* Tablet */
-@media (min-width: 768px) {
-    .container {
-        max-width: 750px;
-    }
-}
-
-/* Desktop */
-@media (min-width: 1024px) {
-    .container {
-        max-width: 1200px;
+/* Tablette */
+@media (max-width: 1024px) {
+    .avatar-container {
+        height: 350px;
     }
     
     .dashboard-sidebar {
-        display: block;
+        transform: translateX(-100%);
+    }
+    
+    .dashboard-sidebar.open {
+        transform: translateX(0);
     }
 }
 
-/* Large desktop */
-@media (min-width: 1400px) {
-    .container {
-        max-width: 1360px;
+/* Mobile */
+@media (max-width: 768px) {
+    .avatar-container {
+        height: 300px;
+    }
+    
+    .avatar-controls {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+    }
+    
+    .dashboard-layout {
+        flex-direction: column;
     }
 }
 ```
 
 ### Adaptations Mobile
+- **Menu hamburger** pour navigation dashboard
+- **Contrôles tactiles** optimisés
+- **Cartes empilées** verticalement
+- **Gestures** pinch-to-zoom pour avatar
+- **Mode portrait** automatique
 
-#### Dashboard Test (Mobile)
-- Menu hamburger pour la navigation
-- Cartes empilées verticalement
-- Contrôles tactiles optimisés
-- Graphiques simplifiés
-
-#### Avatar (Mobile)
-- Mode portrait optimisé
-- Contrôles en bas d'écran
-- Gestures tactiles (pinch, swipe)
-- Mode plein écran automatique
-
-## Sécurité
-
-### Protection CSRF
-
-```java
-@Configuration
-@EnableWebSecurity
-public class WebSecurityConfig {
-    
-    @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http.csrf().csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-            .and()
-            .authorizeHttpRequests()
-            .requestMatchers("/api/**").permitAll()
-            .anyRequest().authenticated();
-        
-        return http.build();
-    }
-}
-```
-
-### Validation des Entrées
-
-```java
-@RestController
-@RequestMapping("/api/test")
-@Validated
-public class TestApiController {
-    
-    @PostMapping("/activity/set")
-    public ResponseEntity<?> setActivity(
-            @Valid @RequestBody ActivityRequest request) {
-        
-        // Validation automatique via annotations
-        return ResponseEntity.ok(testService.setActivity(request));
-    }
-}
-
-@Data
-public class ActivityRequest {
-    @NotNull
-    @Pattern(regexp = "^[A-Z_]+$")
-    private String activity;
-    
-    @DecimalMin("0.0")
-    @DecimalMax("1.0")
-    private Double confidence;
-    
-    @Min(1000)
-    @Max(3600000)
-    private Long duration;
-}
-```
-
-## Performance
+## ⚡ Performance et Optimisation
 
 ### Optimisations Frontend
-
-#### 1. **Lazy Loading**
 ```javascript
-// Chargement différé des modules
-const loadAvatarModule = () => {
-    return import('./modules/avatar.js');
+// Lazy loading des modules
+const loadAvatarModule = async () => {
+    const { AvatarRenderer } = await import('./avatar/avatar-renderer.js');
+    return new AvatarRenderer();
 };
 
-// Intersection Observer pour le lazy loading
-const imageObserver = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-        if (entry.isIntersecting) {
-            const img = entry.target;
-            img.src = img.dataset.src;
-            imageObserver.unobserve(img);
-        }
+// Debounce pour les contrôles
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// Application sur les sliders
+const updateSpeed = debounce((value) => {
+    fetch('/api/test/simulation/speed', {
+        method: 'PUT',
+        body: JSON.stringify({ speed: value }),
+        headers: { 'Content-Type': 'application/json' }
     });
-});
+}, 300);
 ```
 
-#### 2. **Mise en Cache**
-```javascript
-// Service Worker pour la mise en cache
-self.addEventListener('fetch', event => {
-    if (event.request.url.includes('/api/')) {
-        // Cache API responses for 5 minutes
-        event.respondWith(
-            caches.open('api-cache').then(cache => {
-                return cache.match(event.request).then(response => {
-                    if (response && isNotExpired(response)) {
-                        return response;
-                    }
-                    return fetch(event.request).then(fetchResponse => {
-                        cache.put(event.request, fetchResponse.clone());
-                        return fetchResponse;
-                    });
-                });
-            })
-        );
-    }
-});
-```
-
-#### 3. **Compression**
+### Configuration Spring Boot
 ```properties
-# Configuration Spring Boot
+# Compression des ressources
 server.compression.enabled=true
-server.compression.mime-types=text/html,text/css,application/javascript,application/json
+server.compression.mime-types=text/html,text/css,application/javascript
 server.compression.min-response-size=1024
 
-# Gzip des ressources statiques
-spring.web.resources.chain.compressed=true
-```
-
-### Optimisations Backend
-
-#### 1. **Cache Spring**
-```java
-@Service
-@CacheConfig(cacheNames = "proposals")
-public class ProposalService {
-    
-    @Cacheable(key = "#activity.name()")
-    public List<Proposal> getProposalsForActivity(Activity activity) {
-        // Computation intensive method
-        return computeProposals(activity);
-    }
-    
-    @CacheEvict(allEntries = true)
-    @Scheduled(fixedRate = 3600000) // 1 hour
-    public void evictCache() {
-        // Cache cleanup
-    }
-}
-```
-
-#### 2. **Async Processing**
-```java
-@Service
-public class AsyncProposalService {
-    
-    @Async
-    @EventListener
-    public void handleActivityChange(ActivityChangeEvent event) {
-        // Process activity change asynchronously
-        processActivityChange(event.getActivity());
-    }
-    
-    @Async("avatarExecutor")
-    public CompletableFuture<Void> displayProposal(Proposal proposal) {
-        return avatarController.displayProposal(proposal);
-    }
-}
-```
-
-## Monitoring et Métriques
-
-### Actuator Endpoints
-
-```properties
-# Configuration Actuator
-management.endpoints.web.exposure.include=health,info,metrics,prometheus
-management.endpoint.health.show-details=always
-management.metrics.export.prometheus.enabled=true
-```
-
-### Métriques Personnalisées
-
-```java
-@Component
-public class CustomMetrics {
-    
-    private final MeterRegistry meterRegistry;
-    private final Counter proposalCounter;
-    private final Timer responseTimer;
-    
-    public CustomMetrics(MeterRegistry meterRegistry) {
-        this.meterRegistry = meterRegistry;
-        this.proposalCounter = Counter.builder("angel.proposals.generated")
-            .description("Number of proposals generated")
-            .register(meterRegistry);
-        
-        this.responseTimer = Timer.builder("angel.response.time")
-            .description("Response time for proposals")
-            .register(meterRegistry);
-    }
-    
-    public void recordProposal(String type) {
-        proposalCounter.increment(Tags.of("type", type));
-    }
-    
-    public void recordResponseTime(Duration duration) {
-        responseTimer.record(duration);
-    }
-}
-```
-
-### Dashboard de Monitoring
-
-Accès aux métriques :
-- **Health** : http://localhost:8081/actuator/health
-- **Métriques** : http://localhost:8081/actuator/metrics
-- **Prometheus** : http://localhost:8081/actuator/prometheus
-
-## Déploiement
-
-### Configuration de Production
-
-```properties
-# Production settings
-server.port=8080
-server.servlet.context-path=/angel
-
-# Security
-server.ssl.enabled=true
-server.ssl.key-store=classpath:keystore.p12
-server.ssl.key-store-password=${SSL_PASSWORD}
-
-# Performance
-server.tomcat.max-threads=200
-server.tomcat.min-spare-threads=10
-server.tomcat.connection-timeout=20000
-
-# Caching
+# Cache des ressources statiques
 spring.web.resources.cache.cachecontrol.max-age=31536000
 spring.web.resources.chain.strategy.content.enabled=true
 spring.web.resources.chain.strategy.content.paths=/**
+
+# Optimisation WebSocket
+server.tomcat.websocket.max-idle-timeout=300000
+server.tomcat.websocket.buffer-size=8192
 ```
 
-### Docker
+## 🔒 Sécurité Web
 
-```dockerfile
-FROM openjdk:17-jre-slim
-
-COPY target/angel-virtual-assistant-*.jar app.jar
-COPY config/ /app/config/
-
-EXPOSE 8080
-
-ENV SPRING_CONFIG_LOCATION=file:/app/config/
-ENV SPRING_PROFILES_ACTIVE=prod
-
-ENTRYPOINT ["java", "-jar", "/app.jar"]
-```
-
-### Reverse Proxy (Nginx)
-
-```nginx
-server {
-    listen 80;
-    server_name angel.example.com;
-    
-    location / {
-        proxy_pass http://localhost:8080;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-    
-    location /ws/ {
-        proxy_pass http://localhost:8080;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-    }
-    
-    # Cache static resources
-    location ~* \.(css|js|png|jpg|jpeg|gif|ico|svg)$ {
-        proxy_pass http://localhost:8080;
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-    }
-}
-```
-
-## Dépannage
-
-### Problèmes Courants
-
-#### 1. **Template non trouvé**
-```
-Error: Could not resolve template "avatar"
-```
-
-**Solution** :
-```bash
-# Vérifier la structure des templates
-ls -la src/main/resources/templates/
-
-# Vérifier la configuration Thymeleaf
-grep thymeleaf config/application*.properties
-```
-
-#### 2. **Ressources statiques inaccessibles**
-```
-404 Not Found - /css/avatar.css
-```
-
-**Solution** :
-```bash
-# Vérifier la structure static
-ls -la src/main/resources/static/
-
-# Vérifier la configuration des ressources
-grep "spring.web.resources" config/application*.properties
-```
-
-#### 3. **WebSocket connection failed**
-```
-WebSocket connection to 'ws://localhost:8081/ws/avatar' failed
-```
-
-**Solution** :
-```java
-// Vérifier la configuration WebSocket
-@Configuration
-@EnableWebSocket
-public class WebSocketConfig implements WebSocketConfigurer {
-    
-    @Override
-    public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-        registry.addHandler(new AvatarWebSocketHandler(), "/ws/avatar")
-                .setAllowedOrigins("*");
-    }
-}
-```
-
-#### 4. **CORS errors**
-```
-Access to XMLHttpRequest blocked by CORS policy
-```
-
-**Solution** :
+### Configuration CORS
 ```java
 @Configuration
 public class CorsConfig {
-    
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOriginPatterns(Arrays.asList("*"));
-        configuration.setAllowedMethods(Arrays.asList("*"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
         
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
+        source.registerCorsConfiguration("/api/**", configuration);
         return source;
     }
 }
 ```
 
-### Logs Utiles
+### Protection CSRF
+```properties
+# Configuration sécurité
+spring.security.csrf.csrf-token-repository=cookie
+angel.web.cors.allowed-origins=http://localhost:3000,http://localhost:8080
+angel.web.security.api-key-required=false
+```
 
+## 🧪 Tests Interface Web
+
+### Tests Fonctionnels
 ```bash
-# Logs Spring Boot
-tail -f logs/angel.log | grep -E "(SPRING|Tomcat|Thymeleaf)"
+# Test complet interface web
+./angel-launcher.sh test-web
 
-# Logs WebSocket
-tail -f logs/angel.log | grep -i websocket
+# Test spécifique avatar
+./angel-launcher.sh test-avatar-web
 
-# Logs d'erreur HTTP
-tail -f logs/angel.log | grep -E "(404|500|ERROR)"
+# Test dashboard en mode test
+./angel-launcher.sh start -p test
+# Puis naviguer vers http://localhost:8081/test-dashboard
+```
 
-# Logs de performance
+### Tests JavaScript Console
+```javascript
+// Test WebSocket avatar
+if (window.avatarWs && window.avatarWs.readyState === WebSocket.OPEN) {
+    console.log('✅ WebSocket Avatar connecté');
+} else {
+    console.log('❌ WebSocket Avatar déconnecté');
+}
+
+// Test API REST
+fetch('/api/avatar/status')
+    .then(response => response.json())
+    .then(data => console.log('Avatar Status:', data))
+    .catch(error => console.error('API Error:', error));
+
+// Test reconnaissance vocale
+if ('webkitSpeechRecognition' in window) {
+    console.log('✅ Speech Recognition supporté');
+} else {
+    console.log('❌ Speech Recognition non supporté');
+}
+```
+
+## 🔍 Dépannage Interface Web
+
+### Problèmes Courants
+
+#### Interface avatar ne charge pas
+```bash
+# Vérifier le serveur Spring Boot
+curl -I http://localhost:8081/angel
+
+# Vérifier les logs
+grep -i "thymeleaf\|template" logs/angel.log
+
+# Tester avec un navigateur différent
+```
+
+#### WebSocket ne se connecte pas
+```javascript
+// Debug WebSocket dans la console
+const testWs = new WebSocket('ws://localhost:8081/ws/avatar');
+testWs.onopen = () => console.log('WebSocket ouvert');
+testWs.onerror = (error) => console.error('WebSocket erreur:', error);
+testWs.onclose = (event) => console.log('WebSocket fermé:', event.code);
+```
+
+#### Dashboard test ne répond pas
+```bash
+# Vérifier le mode test
+grep "angel.test.enabled=true" config/application-test.properties
+
+# Vérifier les endpoints API
+curl http://localhost:8081/api/test/health
+
+# Redémarrer en mode debug
+./angel-launcher.sh start -p test -d
+```
+
+#### Ressources statiques 404
+```bash
+# Vérifier la structure des ressources
+ls -la src/main/resources/static/
+
+# Vérifier la configuration Spring
+grep "spring.web.resources" config/application*.properties
+
+# Test direct d'une ressource
+curl -I http://localhost:8081/css/avatar.css
+```
+
+## 📊 Monitoring Interface Web
+
+### Métriques Spring Boot Actuator
+```properties
+# Activation des endpoints de monitoring
+management.endpoints.web.exposure.include=health,info,metrics
+management.endpoint.health.show-details=always
+management.metrics.export.prometheus.enabled=true
+```
+
+### Logs Utiles
+```bash
+# Logs spécifiques interface web
+tail -f logs/angel.log | grep -E "(HTTP|WebSocket|Thymeleaf)"
+
+# Logs erreurs JavaScript (dans navigateur)
+# F12 → Console → Voir erreurs JS
+
+# Logs performances
 tail -f logs/angel.log | grep -E "(slow|timeout|performance)"
 ```
 
-## Conclusion
+## 🚀 Déploiement Interface Web
 
-L'interface web d'Angel Virtual Assistant offre une expérience utilisateur moderne et complète pour interagir avec l'assistant virtuel. Elle combine la puissance de Spring Boot côté serveur avec une interface utilisateur responsive et interactive côté client.
+### Configuration Production
+```properties
+# Production settings
+server.port=8080
+server.servlet.context-path=/angel
+server.ssl.enabled=true
 
-Les fonctionnalités principales incluent :
-- Interface avatar 3D en temps réel
-- Dashboard de test complet avec contrôles avancés
-- API REST complète pour l'intégration
-- Communication WebSocket pour les mises à jour temps réel
-- Design responsive compatible mobile et desktop
+# Optimisations production
+spring.thymeleaf.cache=true
+spring.web.resources.cache.period=86400
+logging.level.root=WARN
+```
 
-Pour plus d'informations :
-- [README.md](../README.md) : Documentation principale
-- [TEST_MODE.md](TEST_MODE.md) : Guide du mode test
-- [SPRING_BOOT_MIGRATION.md](SPRING_BOOT_MIGRATION.md) : Guide de migration
+### Reverse Proxy Nginx
+```nginx
+server {
+    listen 80;
+    server_name angel.example.com;
+    
+    # Interface web principale
+    location / {
+        proxy_pass http://localhost:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+    
+    # WebSocket
+    location /ws/ {
+        proxy_pass http://localhost:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+    
+    # Ressources statiques avec cache
+    location ~* \.(css|js|png|jpg|ico)$ {
+        proxy_pass http://localhost:8080;
+        expires 1y;
+        add_header Cache-Control "public";
+    }
+}
+```
+
+## 📋 Contrôleurs Spring Boot
+
+### Contrôleur Avatar
+```java
+@Controller
+@RequestMapping("/angel")
+public class AvatarWebController {
+    
+    @Autowired
+    private AvatarService avatarService;
+    
+    @GetMapping
+    public String avatarPage(Model model) {
+        model.addAttribute("avatarConfig", avatarService.getConfiguration());
+        model.addAttribute("voiceEnabled", avatarService.isVoiceEnabled());
+        return "avatar";
+    }
+    
+    @GetMapping("/test-dashboard")
+    public String testDashboard(Model model) {
+        if (!testModeEnabled) {
+            return "redirect:/angel";
+        }
+        
+        model.addAttribute("testStats", testService.getCurrentStats());
+        model.addAttribute("activities", Activity.getAllTypes());
+        return "test-dashboard";
+    }
+}
+```
+
+### API REST Controller
+```java
+@RestController
+@RequestMapping("/api/avatar")
+public class AvatarApiController {
+    
+    @PostMapping("/speak")
+    public ResponseEntity<Map<String, Object>> makeSpeak(@RequestBody SpeechRequest request) {
+        try {
+            avatarService.speak(request.getText(), request.getEmotion());
+            return ResponseEntity.ok(Map.of("status", "speaking", "text", request.getText()));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                .body(Map.of("error", "Speech failed", "message", e.getMessage()));
+        }
+    }
+    
+    @GetMapping("/status")
+    public ResponseEntity<AvatarStatus> getStatus() {
+        return ResponseEntity.ok(avatarService.getCurrentStatus());
+    }
+}
+```
+
+---
+
+L'interface web d'Angel Virtual Assistant offre une expérience utilisateur complète et moderne pour interagir avec l'assistant virtuel, que ce soit en mode normal ou en mode test avec contrôles avancés.

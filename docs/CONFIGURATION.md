@@ -1,119 +1,84 @@
-# Configuration Angel Virtual Assistant
+# Configuration - Angel Virtual Assistant
 
-Guide complet de la configuration avec Spring Boot et organisation centralisée.
+Guide de la configuration centralisée avec Spring Boot et profils d'environnement.
 
-## Vue d'ensemble
+## 🎯 Vue d'Ensemble
 
-Angel Virtual Assistant utilise maintenant une **configuration centralisée** dans le dossier `config/` avec Spring Boot. Cette approche permet :
+Angel Virtual Assistant utilise une **configuration centralisée** dans le dossier `config/` avec Spring Boot :
 
-- 🎯 **Configuration unique** : Tous les paramètres dans un seul endroit
-- 🔧 **Profils Spring Boot** : Configuration différente par environnement
-- ⚙️ **Hot reload** : Rechargement automatique en développement
-- 🔒 **Sécurité** : Séparation des configurations sensibles
+- **Configuration unique** : Tous les paramètres dans `config/`
+- **Profils Spring Boot** : Configuration par environnement
+- **Variables d'environnement** : Valeurs sensibles externalisées
+- **Hot reload** : Rechargement automatique en développement
+- **Validation** : Vérification automatique des propriétés
 
-## Structure de Configuration
+## 📁 Structure de Configuration
 
 ```
 config/
-├── application.properties          # Configuration principale (mode normal)
-├── application-test.properties     # Configuration mode test
-├── application-dev.properties      # Configuration développement (optionnel)
-├── application-prod.properties     # Configuration production (optionnel)
-└── test/
-    ├── test-mode-config.json      # Configuration détaillée mode test
-    └── activity-scenarios.json    # Scénarios d'activités
+├── application.properties              # Configuration normale (port 8080)
+├── application-test.properties         # Configuration test (port 8081)
+├── application-dev.properties          # Configuration développement
+├── application-prod.properties         # Configuration production
+└── avatar.properties                   # Configuration avatar par défaut
 ```
 
-## Fichiers de Configuration
+## ⚙️ Configuration Principale
 
 ### `config/application.properties` (Mode Normal)
 
-Configuration principale pour le mode normal de fonctionnement :
+Configuration pour le mode normal avec Angel-server-capture :
 
 ```properties
 # ===============================================
-# Configuration centrale Angel Virtual Assistant
+# Angel Virtual Assistant - Configuration Normale
 # ===============================================
 
 # Application
-app.name=Angel Companion
-app.version=1.0.0
-app.description=Assistant virtuel intelligent pour surveillance d'activités
-
-# Système
-system.name=Angel Companion
-system.version=1.0.0
-system.language=fr
-system.wake-word=Angel
-
-# ===============================================
-# Configuration Spring Boot
-# ===============================================
-
-# Application Spring Boot
 spring.application.name=Angel Virtual Assistant
-spring.main.allow-bean-definition-overriding=true
+app.name=Angel Companion
+app.version=1.1.0
+app.description=Assistant virtuel avec avatar 3D et reconnaissance vocale
 
-# Serveur (mode normal)
+# Serveur principal (mode normal)
 server.port=8080
 server.servlet.context-path=/angel
 
-# Configuration Web Spring
-spring.mvc.view.prefix=/templates/
-spring.mvc.view.suffix=.html
+# ===============================================
+# Configuration Base de Données
+# ===============================================
 
-# Configuration des ressources statiques
-spring.web.resources.static-locations=classpath:/static/
+# Base de données H2 persistante
+spring.datasource.url=jdbc:h2:file:./data/angel-db
+spring.datasource.driver-class-name=org.h2.Driver
+spring.datasource.username=angel
+spring.datasource.password=${DB_PASSWORD:angel123}
+spring.h2.console.enabled=true
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=false
 
-# Configuration Templates (Thymeleaf)
-spring.thymeleaf.cache=false
+# ===============================================
+# Configuration Web
+# ===============================================
+
+# Templates Thymeleaf
+spring.thymeleaf.cache=true
 spring.thymeleaf.prefix=classpath:/templates/
 spring.thymeleaf.suffix=.html
+
+# Ressources statiques
+spring.web.resources.static-locations=classpath:/static/
+spring.web.resources.cache.cachecontrol.max-age=3600
 
 # ===============================================
 # Configuration API Angel-server-capture
 # ===============================================
 
-# API externe
-api.angel-server-url=http://localhost:8080/api
-api.polling-interval=30000
-api.timeout=5000
-
-# ===============================================
-# Configuration Base de données
-# ===============================================
-
-# Base de données H2
-database.url=jdbc:h2:file:./angel-db
-database.driver=org.h2.Driver
-database.username=angel
-database.password=angel123
-
-# Spring JPA/Hibernate
-spring.datasource.url=jdbc:h2:file:./angel-db
-spring.datasource.driver-class-name=org.h2.Driver
-spring.datasource.username=angel
-spring.datasource.password=angel123
-spring.h2.console.enabled=true
-spring.jpa.hibernate.ddl-auto=update
-spring.jpa.show-sql=false
-spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect
-
-# ===============================================
-# Configuration Logging
-# ===============================================
-
-# Logging
-logging.level=INFO
-logging.file-path=./logs/angel.log
-logging.rotation-size=10MB
-logging.max-files=5
-
-# Spring Logging
-logging.level.root=INFO
-logging.level.com.angel=DEBUG
-logging.file.name=logs/angel.log
-logging.pattern.file=%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n
+# API externe pour capture d'activités
+api.angel-server.url=${ANGEL_SERVER_URL:http://localhost:8080/api}
+api.angel-server.polling-interval=30000
+api.angel-server.timeout=5000
+api.angel-server.enabled=true
 
 # ===============================================
 # Configuration Avatar
@@ -121,116 +86,84 @@ logging.pattern.file=%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %m
 
 # Avatar général
 avatar.enabled=true
-avatar.display-time=30000
-avatar.transition-effect=fade
-avatar.default-mood=neutral
-avatar.type=3d_realistic
-avatar.model=female_50_casual
-avatar.voice-type=female_french_warm
-
-# Apparence avatar
-avatar.appearance.age=50
-avatar.appearance.gender=female
-avatar.appearance.style=casual_friendly
-
-# Avatar Web
+avatar.model.ready-player-me.default-id=687f66fafe8107131699bf7b
 avatar.web.enabled=true
 avatar.web.websocket.path=/ws/avatar
-avatar.web.3d.quality=medium
-avatar.web.voice.enabled=true
+avatar.web.quality=medium
+
+# ===============================================
+# Configuration Reconnaissance Vocale
+# ===============================================
+
+# Wake word "Angel"
+voice.wake-word.enabled=true
+voice.wake-word.words=angel,angèle,ange
+voice.wake-word.threshold=0.7
+
+# Synthèse vocale
+voice.speech.synthesis.voice=Microsoft Hortense - French (France) (fr-FR)
+voice.speech.synthesis.rate=1.0
+voice.speech.synthesis.volume=0.8
 
 # ===============================================
 # Configuration Propositions
 # ===============================================
 
-# Propositions quotidiennes - News
+# Propositions quotidiennes
+proposals.enabled=true
 proposals.daily.news.max-per-day=5
-proposals.daily.news.min-time-between=7200000
-proposals.daily.news.sources=local,national,international
-proposals.daily.news.preferred-categories=general,health,science
-
-# Propositions quotidiennes - Météo
 proposals.daily.weather.max-per-day=3
-proposals.daily.weather.min-time-between=14400000
-proposals.daily.weather.include-today=true
-proposals.daily.weather.include-tomorrow=true
-
-# Mapping des activités
-proposals.activity-mapping.cleaning=recommendations,stories,media.music,media.radio
-proposals.activity-mapping.eating=news,weather,reminders.medications,conversations
-proposals.activity-mapping.waiting=news,weather,stories,conversations,games,media
-proposals.activity-mapping.waking-up=weather,reminders,news
+proposals.activity-mapping.enabled=true
 
 # ===============================================
-# Configuration Mode Test
+# Configuration Logging
 # ===============================================
 
-# Mode test (désactivé par défaut en mode normal)
-angel.test.enabled=false
-angel.test.auto-start=false
-angel.test.dashboard.enabled=true
+# Logs application
+logging.level.root=INFO
+logging.level.com.angel=DEBUG
+logging.file.name=logs/angel.log
+logging.pattern.file=%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n
+logging.file.max-size=10MB
+logging.file.max-history=5
 
 # ===============================================
 # Configuration Monitoring
 # ===============================================
 
-# Métriques et santé
-management.endpoints.web.exposure.include=health,info,metrics,prometheus
-management.endpoint.health.show-details=always
-management.metrics.export.prometheus.enabled=true
+# Actuator endpoints
+management.endpoints.web.exposure.include=health,info,metrics
+management.endpoint.health.show-details=when-authorized
+management.metrics.export.prometheus.enabled=false
+
+# Mode test désactivé en normal
+angel.test.enabled=false
 ```
 
 ### `config/application-test.properties` (Mode Test)
 
-Configuration spécifique pour le mode test :
+Configuration pour le mode test autonome :
 
 ```properties
 # ===============================================
-# Configuration Angel Virtual Assistant - Mode Test
+# Angel Virtual Assistant - Configuration Test
 # ===============================================
 
-# Application (mode test)
-system.name=Angel Companion Test
-system.version=1.0.0-TEST
-system.language=fr
-system.wake-word=Angel
-
-# ===============================================
-# Configuration Spring Boot Test
-# ===============================================
-
-# Application Spring Boot (test)
+# Application test
 spring.application.name=Angel Virtual Assistant Test
-spring.main.allow-bean-definition-overriding=true
+app.name=Angel Companion Test
+app.version=1.1.0-TEST
 
-# Serveur (port différent pour test)
+# Serveur test (port différent)
 server.port=8081
 server.servlet.context-path=/
 
-# Configuration Web Spring (test)
-spring.mvc.view.prefix=/templates/
-spring.mvc.view.suffix=.html
-
-# Configuration des ressources statiques (test)
-spring.web.resources.static-locations=classpath:/static/
-
-# Configuration Templates (test)
-spring.thymeleaf.cache=false
-spring.thymeleaf.prefix=classpath:/templates/
-spring.thymeleaf.suffix=.html
-
 # ===============================================
-# Configuration Base de données Test
+# Configuration Base de Données Test
 # ===============================================
 
-# Base de données (test avec H2 en mémoire)
-database.url=jdbc:h2:mem:angel-test-db;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-database.driver=org.h2.Driver
-database.username=angel_test
-database.password=test123
-
-# Spring JPA/Hibernate (test)
-spring.datasource.url=jdbc:h2:mem:angel-test-db;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+# Base de données H2 en mémoire pour tests
+spring.datasource.url=jdbc:h2:mem:angel-test;DB_CLOSE_DELAY=-1
 spring.datasource.driver-class-name=org.h2.Driver
 spring.datasource.username=angel_test
 spring.datasource.password=test123
@@ -239,74 +172,77 @@ spring.jpa.hibernate.ddl-auto=create-drop
 spring.jpa.show-sql=true
 
 # ===============================================
-# Configuration Mode Test spécifique
+# Configuration Web Test
+# ===============================================
+
+# Templates sans cache en test
+spring.thymeleaf.cache=false
+spring.web.resources.cache.period=0
+
+# ===============================================
+# Configuration Mode Test
 # ===============================================
 
 # Mode test activé
 angel.test.enabled=true
 angel.test.auto-start=true
 angel.test.dashboard.enabled=true
-angel.test.config-file=config/test/test-mode-config.json
-angel.test.scenarios-file=config/test/scenarios.json
 
-# Simulation accélérée pour tests
+# Simulation accélérée
 angel.test.simulation.interval=5000
 angel.test.simulation.randomness=0.5
 angel.test.simulation.speed-multiplier=5.0
-angel.test.simulation.noise-enabled=true
 
 # Dashboard test
-angel.test.dashboard.refresh-interval=5000
-angel.test.dashboard.max-log-entries=1000
-angel.test.dashboard.stats.enabled=true
+angel.test.dashboard.refresh-interval=2000
+angel.test.dashboard.max-log-entries=500
+angel.test.dashboard.auto-clear-logs=true
 
 # ===============================================
-# Configuration API Test
+# Configuration API Test (Mock)
 # ===============================================
 
-# API externe (mock en mode test)
-api.angel-server-url=http://localhost:8082/api
-api.polling-interval=10000
-api.timeout=2000
+# API mock pour tests
+api.angel-server.enabled=false
+api.angel-server.mock.enabled=true
+api.angel-server.url=http://localhost:8082/api/mock
 
 # ===============================================
 # Configuration Avatar Test
 # ===============================================
 
-# Avatar (simplifié en test)
+# Avatar simplifié en test
 avatar.enabled=true
-avatar.display-time=5000
-avatar.transition-effect=none
-avatar.default-mood=neutral
-
-# Avatar Web (test)
-avatar.web.enabled=true
-avatar.web.websocket.path=/ws/avatar
-avatar.web.3d.quality=low
-avatar.web.voice.enabled=false
+avatar.web.quality=low
+avatar.web.shadows=false
+avatar.web.antialiasing=false
 
 # ===============================================
-# Configuration Propositions Test
+# Configuration Reconnaissance Vocale Test
 # ===============================================
 
-# Propositions (accélérées pour test)
-proposals.daily.news.max-per-day=10
-proposals.daily.news.min-time-between=60000
-proposals.daily.weather.max-per-day=5
-proposals.daily.weather.min-time-between=120000
+# Wake word avec seuil réduit pour tests
+voice.wake-word.threshold=0.5
+voice.wake-word.fallback-mode=true
+
+# Synthèse vocale désactivée par défaut en test
+voice.speech.synthesis.enabled=false
+voice.speech.synthesis.volume=0.5
 
 # ===============================================
 # Configuration Logging Test
 # ===============================================
 
-# Logging (plus verbeux en test)
+# Logs détaillés en test
 logging.level.root=DEBUG
 logging.level.com.angel=TRACE
+logging.level.org.springframework=DEBUG
 logging.file.name=logs/angel-test.log
 logging.pattern.console=%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n
 
+
 # ===============================================
-# Configuration développement/debug (mode test)
+# Configuration Développement
 # ===============================================
 
 # Mode développement activé
@@ -315,13 +251,10 @@ angel.dev.mock-data=true
 angel.dev.performance-monitoring=true
 
 # Sécurité désactivée en test
-angel.security.enabled=false
-
-# Monitoring simplifié en test
-management.endpoints.web.exposure.include=health,info
+spring.security.enabled=false
 ```
 
-## Configuration par Profil
+## 🔧 Profils et Environnements
 
 ### Activation des Profils
 
@@ -337,291 +270,199 @@ management.endpoints.web.exposure.include=health,info
 
 # Profil production (application-prod.properties)
 ./angel-launcher.sh start -p prod
+
+# Profils multiples
+./angel-launcher.sh start -p "test,dev"
 ```
 
-### Hiérarchie de Configuration
-
-Spring Boot charge les fichiers dans cet ordre (le dernier écrase le précédent) :
-
-1. `config/application.properties` (base)
-2. `config/application-{profile}.properties` (profil spécifique)
-3. Variables d'environnement
-4. Arguments de ligne de commande
-
-### Exemple avec Profil Dev
-
-Créer `config/application-dev.properties` :
+### Profil Développement (`application-dev.properties`)
 
 ```properties
 # Configuration développement
 
-# Port développement
+# Port dédié développement
 server.port=8090
 
 # Hot reload activé
 spring.devtools.restart.enabled=true
 spring.devtools.livereload.enabled=true
+spring.devtools.restart.additional-paths=config/
 
 # Cache désactivé
 spring.thymeleaf.cache=false
 spring.web.resources.cache.period=0
 
-# Logs détaillés
-logging.level.com.angel=DEBUG
-logging.level.org.springframework=DEBUG
-logging.level.org.hibernate.SQL=DEBUG
-
 # Base de données développement
-spring.datasource.url=jdbc:h2:file:./angel-dev-db
+spring.datasource.url=jdbc:h2:file:./data/angel-dev-db
 spring.jpa.show-sql=true
 
-# Mode développement
+# Logs détaillés
+logging.level.com.angel=DEBUG
+logging.level.org.springframework.web=DEBUG
+logging.level.org.hibernate.SQL=DEBUG
+logging.level.org.hibernate.type.descriptor.sql.BasicBinder=TRACE
+
+# Debug mode
 angel.dev.debug-mode=true
-angel.dev.mock-data=false
 angel.dev.performance-monitoring=true
+angel.dev.mock-external-apis=true
+
+# Avatar qualité réduite pour développement
+avatar.web.quality=medium
+avatar.web.fps-target=30
 ```
 
-## Variables d'Environnement
+### Profil Production (`application-prod.properties`)
 
-### Variables Support
+```properties
+# Configuration production
+
+# Port standard production
+server.port=8080
+server.servlet.context-path=/angel
+
+# SSL/HTTPS
+server.ssl.enabled=true
+server.ssl.key-store=classpath:keystore.p12
+server.ssl.key-store-password=${SSL_KEYSTORE_PASSWORD}
+server.ssl.key-store-type=PKCS12
+
+# Base de données production
+spring.datasource.url=${DATABASE_URL}
+spring.datasource.username=${DATABASE_USERNAME}
+spring.datasource.password=${DATABASE_PASSWORD}
+spring.jpa.hibernate.ddl-auto=validate
+spring.jpa.show-sql=false
+
+# Cache activé
+spring.thymeleaf.cache=true
+spring.web.resources.cache.cachecontrol.max-age=31536000
+spring.web.resources.chain.strategy.content.enabled=true
+
+# Logs production
+logging.level.root=WARN
+logging.level.com.angel=INFO
+logging.file.name=logs/angel-prod.log
+
+# Sécurité renforcée
+spring.security.enabled=true
+angel.web.security.api-key-required=true
+angel.web.cors.allowed-origins=${ALLOWED_ORIGINS}
+
+# Monitoring complet
+management.endpoints.web.exposure.include=health,info,metrics,prometheus
+management.metrics.export.prometheus.enabled=true
+
+# Avatar qualité maximale
+avatar.web.quality=high
+avatar.web.shadows=true
+avatar.web.antialiasing=true
+avatar.web.fps-target=60
+```
+
+## 🌍 Variables d'Environnement
+
+### Variables Principales
 
 ```bash
-# Port du serveur
+# Variables de base
 export SERVER_PORT=8080
+export SPRING_PROFILES_ACTIVE=prod
 
 # Base de données
-export DB_URL=jdbc:h2:file:./angel-db
-export DB_USERNAME=angel
-export DB_PASSWORD=secret123
+export DATABASE_URL=jdbc:postgresql://localhost:5432/angel_prod
+export DATABASE_USERNAME=angel_user
+export DATABASE_PASSWORD=secure_password_here
+export DB_PASSWORD=local_dev_password
 
 # API externe
 export ANGEL_SERVER_URL=http://production-server:8080/api
 
-# Profil actif
-export SPRING_PROFILES_ACTIVE=prod
+# Sécurité
+export SSL_KEYSTORE_PASSWORD=keystore_password
+export ALLOWED_ORIGINS=https://angel.mycompany.com,https://dashboard.mycompany.com
 
-# Démarrer avec les variables
+# Monitoring
+export PROMETHEUS_ENABLED=true
+
+# Avatar
+export READY_PLAYER_ME_API_KEY=your_api_key_here
+
+# Démarrage avec variables
 ./angel-launcher.sh start
 ```
 
-### Fichier `.env` (optionnel)
+### Fichier `.env` Local
 
-Créer un fichier `.env` pour les variables locales :
+Créer `.env` pour le développement local :
 
 ```bash
-# Variables d'environnement Angel
-SERVER_PORT=8080
-DB_PASSWORD=mySecretPassword
+# .env - Variables locales (ne pas commiter)
+SERVER_PORT=8090
+DB_PASSWORD=dev_password_123
 ANGEL_SERVER_URL=http://localhost:8080/api
-LOG_LEVEL=INFO
+SPRING_PROFILES_ACTIVE=dev
+DEBUG_MODE=true
+LOG_LEVEL=DEBUG
 ```
 
 Charger avant démarrage :
 
 ```bash
+# Charger les variables et démarrer
 source .env
 ./angel-launcher.sh start
+
+# Ou directement
+./angel-launcher.sh start --env-file .env
 ```
 
-## Configuration Avancée
+## 🎯 Configuration Avatar
 
-### SSL/TLS (Production)
+### `config/avatar.properties`
 
-Ajouter dans `config/application-prod.properties` :
+Configuration dédiée avatar (chargée par défaut) :
 
 ```properties
-# Configuration HTTPS
-server.ssl.enabled=true
-server.ssl.key-store=classpath:keystore.p12
-server.ssl.key-store-password=${SSL_KEYSTORE_PASSWORD}
-server.ssl.key-store-type=PKCS12
-server.ssl.key-alias=angel
+# ===============================================
+# Configuration Avatar par Défaut
+# ===============================================
 
-# Redirection HTTP vers HTTPS
-server.ssl.require-ssl=true
+# Ready Player Me
+avatar.ready-player-me.enabled=true
+avatar.ready-player-me.default-id=687f66fafe8107131699bf7b
+avatar.ready-player-me.base-url=https://models.readyplayer.me
+avatar.ready-player-me.timeout=30000
+
+# Rendu 3D
+avatar.rendering.quality=medium
+avatar.rendering.antialiasing=true
+avatar.rendering.shadows=true
+avatar.rendering.pixel-ratio=auto
+avatar.rendering.fps-target=60
+
+# Animations
+avatar.animations.speaking.enabled=true
+avatar.animations.speaking.intensity=0.7
+avatar.animations.emotions.enabled=true
+avatar.animations.emotions.transitions=true
+avatar.animations.idle.enabled=true
+avatar.animations.idle.variations=3
+
+# Interface Web
+avatar.web.controls.mute-button=true
+avatar.web.controls.settings-button=true
+avatar.web.controls.fullscreen-button=true
+avatar.web.controls.auto-hide=true
+avatar.web.controls.auto-hide-delay=5000
+
+# Mode sombre
+avatar.dark-mode.enabled=true
+avatar.dark-mode.trigger-delay=300000
+avatar.dark-mode.show-clock=true
 ```
 
-### Base de Données Externe
-
-Pour utiliser PostgreSQL en production :
-
-```properties
-# Configuration PostgreSQL
-spring.datasource.url=jdbc:postgresql://localhost:5432/angel_db
-spring.datasource.driver-class-name=org.postgresql.Driver
-spring.datasource.username=${DB_USERNAME}
-spring.datasource.password=${DB_PASSWORD}
-
-# Configuration JPA pour PostgreSQL
-spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
-spring.jpa.hibernate.ddl-auto=validate
-```
-
-### Cache Redis
-
-Configuration pour cache distribué :
-
-```properties
-# Configuration Redis
-spring.redis.host=localhost
-spring.redis.port=6379
-spring.redis.password=${REDIS_PASSWORD}
-spring.redis.timeout=2000ms
-
-# Cache propositions
-spring.cache.type=redis
-spring.cache.redis.time-to-live=3600000
-```
-
-### Monitoring Prometheus
-
-```properties
-# Métriques Prometheus
-management.endpoints.web.exposure.include=health,info,metrics,prometheus
-management.endpoint.prometheus.enabled=true
-management.metrics.export.prometheus.enabled=true
-
-# Métriques personnalisées
-management.metrics.tags.application=angel-virtual-assistant
-management.metrics.tags.environment=${SPRING_PROFILES_ACTIVE}
-```
-
-## Configuration de Sécurité
-
-### Authentification Basique
-
-```properties
-# Sécurité Spring Boot
-spring.security.user.name=admin
-spring.security.user.password=${ADMIN_PASSWORD}
-spring.security.user.roles=ADMIN
-
-# Configuration CORS
-angel.web.cors.allowed-origins=http://localhost:3000,https://angel.example.com
-angel.web.cors.allowed-methods=GET,POST,PUT,DELETE
-angel.web.cors.allow-credentials=true
-```
-
-### JWT (à venir)
-
-```properties
-# Configuration JWT
-angel.security.jwt.secret=${JWT_SECRET}
-angel.security.jwt.expiration=86400000
-angel.security.jwt.refresh-expiration=604800000
-```
-
-## Configuration du Mode Test
-
-### `config/test/test-mode-config.json`
-
-Configuration détaillée du mode test :
-
-```json
-{
-  "simulation": {
-    "enabled": true,
-    "interval": 30000,
-    "randomness": 0.3,
-    "speedMultiplier": 1.0,
-    "noiseEnabled": true,
-    "scenarios": {
-      "autoLoad": true,
-      "defaultScenario": "normal_day",
-      "scenariosPath": "config/test/activity-scenarios.json"
-    }
-  },
-  "dashboard": {
-    "enabled": true,
-    "refreshInterval": 5000,
-    "maxLogEntries": 1000,
-    "autoStart": true,
-    "features": {
-      "statistics": true,
-      "realTimeUpdates": true,
-      "scenarioManager": true,
-      "activityControl": true
-    }
-  },
-  "api": {
-    "enabled": true,
-    "basePath": "/api/test",
-    "authentication": false,
-    "rateLimit": {
-      "enabled": false,
-      "requests": 100,
-      "window": 60000
-    }
-  }
-}
-```
-
-### `config/test/activity-scenarios.json`
-
-Scénarios d'activités pour les tests :
-
-```json
-{
-  "scenarios": {
-    "morning_routine": {
-      "name": "Routine Matinale",
-      "description": "Séquence typique du matin",
-      "activities": [
-        {
-          "activity": "WAKING_UP",
-          "duration": 300000,
-          "confidence": 0.9,
-          "description": "Se réveiller"
-        },
-        {
-          "activity": "WASHING",
-          "duration": 600000,
-          "confidence": 0.85,
-          "description": "Se laver"
-        },
-        {
-          "activity": "EATING",
-          "duration": 900000,
-          "confidence": 0.8,
-          "description": "Petit déjeuner"
-        }
-      ]
-    },
-    "evening_routine": {
-      "name": "Routine du Soir",
-      "description": "Séquence typique du soir",
-      "activities": [
-        {
-          "activity": "COOKING",
-          "duration": 1800000,
-          "confidence": 0.85,
-          "description": "Préparer le dîner"
-        },
-        {
-          "activity": "EATING",
-          "duration": 1200000,
-          "confidence": 0.9,
-          "description": "Dîner"
-        },
-        {
-          "activity": "WATCHING_TV",
-          "duration": 3600000,
-          "confidence": 0.8,
-          "description": "Regarder la télévision"
-        },
-        {
-          "activity": "GOING_TO_SLEEP",
-          "duration": 600000,
-          "confidence": 0.95,
-          "description": "Se coucher"
-        }
-      ]
-    }
-  }
-}
-```
-
-## Validation de Configuration
+## 🔍 Validation de Configuration
 
 ### Script de Validation
 
@@ -630,16 +471,15 @@ Créer `scripts/validate-config.sh` :
 ```bash
 #!/bin/bash
 
-echo "Validation de la configuration Angel Virtual Assistant"
+echo "🔍 Validation de la configuration Angel Virtual Assistant"
+echo
 
 # Vérifier les fichiers de configuration
-echo "Vérification des fichiers de configuration..."
-
+echo "📁 Vérification des fichiers..."
 CONFIG_FILES=(
     "config/application.properties"
     "config/application-test.properties"
-    "config/test/test-mode-config.json"
-    "config/test/activity-scenarios.json"
+    "config/avatar.properties"
 )
 
 for file in "${CONFIG_FILES[@]}"; do
@@ -649,44 +489,58 @@ for file in "${CONFIG_FILES[@]}"; do
         echo "❌ $file (manquant)"
     fi
 done
-
-# Vérifier la syntaxe JSON
-echo "Vérification de la syntaxe JSON..."
-
-JSON_FILES=(
-    "config/test/test-mode-config.json"
-    "config/test/activity-scenarios.json"
-)
-
-for file in "${JSON_FILES[@]}"; do
-    if [[ -f "$file" ]]; then
-        if jq empty "$file" 2>/dev/null; then
-            echo "✅ $file (JSON valide)"
-        else
-            echo "❌ $file (JSON invalide)"
-        fi
-    fi
-done
+echo
 
 # Vérifier les propriétés obligatoires
-echo "Vérification des propriétés obligatoires..."
-
+echo "🔑 Vérification des propriétés obligatoires..."
 REQUIRED_PROPS=(
     "spring.application.name"
     "server.port"
     "spring.datasource.url"
     "avatar.enabled"
+    "voice.wake-word.enabled"
 )
 
 for prop in "${REQUIRED_PROPS[@]}"; do
     if grep -q "^$prop=" config/application.properties; then
-        echo "✅ $prop"
+        value=$(grep "^$prop=" config/application.properties | cut -d'=' -f2-)
+        echo "✅ $prop = $value"
     else
         echo "❌ $prop (manquant)"
     fi
 done
+echo
 
-echo "Validation terminée."
+# Vérifier les ports
+echo "🌐 Vérification des ports..."
+NORMAL_PORT=$(grep "^server.port=" config/application.properties | cut -d'=' -f2)
+TEST_PORT=$(grep "^server.port=" config/application-test.properties | cut -d'=' -f2)
+
+if [[ "$NORMAL_PORT" != "$TEST_PORT" ]]; then
+    echo "✅ Ports différents: Normal($NORMAL_PORT) ≠ Test($TEST_PORT)"
+else
+    echo "⚠️  Ports identiques: Normal($NORMAL_PORT) = Test($TEST_PORT)"
+fi
+echo
+
+# Vérifier les variables d'environnement requises
+echo "🌍 Variables d'environnement optionnelles..."
+OPTIONAL_VARS=(
+    "DATABASE_URL"
+    "ANGEL_SERVER_URL"
+    "SSL_KEYSTORE_PASSWORD"
+)
+
+for var in "${OPTIONAL_VARS[@]}"; do
+    if [[ -n "${!var}" ]]; then
+        echo "✅ $var définie"
+    else
+        echo "ℹ️  $var non définie (utilise la valeur par défaut)"
+    fi
+done
+echo
+
+echo "✅ Validation terminée."
 ```
 
 ### Commandes de Validation
@@ -698,105 +552,214 @@ chmod +x scripts/validate-config.sh
 # Exécuter la validation
 ./scripts/validate-config.sh
 
-# Validation avec Spring Boot
+# Validation avec Spring Boot (dry-run)
 ./angel-launcher.sh start --dry-run
 
-# Test de la configuration
-./angel-launcher.sh test-config
+# Test de la configuration test
+./angel-launcher.sh start -p test --validate-only
+
+# Afficher la configuration effective
+./angel-launcher.sh show-config
 ```
 
-## Dépannage Configuration
+## 🔄 Hiérarchie de Configuration
+
+Spring Boot charge les configurations dans cet ordre (le dernier écrase le précédent) :
+
+1. **`config/application.properties`** (base)
+2. **`config/application-{profile}.properties`** (profil)
+3. **Variables d'environnement** (`DATABASE_URL`, etc.)
+4. **Arguments ligne de commande** (`--server.port=8090`)
+5. **Configuration Java** (`@ConfigurationProperties`)
+
+### Exemple Complet
+
+```bash
+# 1. Base: server.port=8080 (application.properties)
+# 2. Profil: server.port=8081 (application-test.properties)
+# 3. Variable: SERVER_PORT=8090
+# 4. Argument: --server.port=8095
+# → Résultat final: 8095
+
+export SERVER_PORT=8090
+./angel-launcher.sh start -p test --server.port=8095
+```
+
+## 🚀 Configuration Avancée
+
+### Base de Données Externe (PostgreSQL)
+
+```properties
+# Configuration PostgreSQL production
+spring.datasource.url=jdbc:postgresql://localhost:5432/angel_db
+spring.datasource.driver-class-name=org.postgresql.Driver
+spring.datasource.username=${DB_USERNAME:angel}
+spring.datasource.password=${DB_PASSWORD}
+spring.datasource.hikari.maximum-pool-size=20
+spring.datasource.hikari.minimum-idle=5
+
+# Configuration JPA pour PostgreSQL
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+spring.jpa.hibernate.ddl-auto=validate
+spring.jpa.properties.hibernate.jdbc.batch_size=50
+```
+
+### Cache Redis
+
+```properties
+# Configuration Redis pour cache distribué
+spring.redis.host=${REDIS_HOST:localhost}
+spring.redis.port=${REDIS_PORT:6379}
+spring.redis.password=${REDIS_PASSWORD}
+spring.redis.timeout=2000ms
+spring.redis.jedis.pool.max-active=20
+spring.redis.jedis.pool.max-idle=10
+
+# Cache propositions
+spring.cache.type=redis
+spring.cache.redis.time-to-live=3600000
+spring.cache.cache-names=proposals,activities,avatar-states
+```
+
+### Monitoring Avancé
+
+```properties
+# Prometheus et métriques
+management.endpoints.web.exposure.include=health,info,metrics,prometheus
+management.endpoint.prometheus.enabled=true
+management.metrics.export.prometheus.enabled=true
+management.metrics.export.prometheus.step=30s
+
+# Tags personnalisés
+management.metrics.tags.application=angel-virtual-assistant
+management.metrics.tags.environment=${SPRING_PROFILES_ACTIVE:default}
+management.metrics.tags.instance=${HOSTNAME:unknown}
+
+# Métriques personnalisées
+angel.metrics.proposals.enabled=true
+angel.metrics.avatar.performance.enabled=true
+angel.metrics.voice.recognition.enabled=true
+```
+
+## 🔍 Dépannage Configuration
 
 ### Problèmes Courants
 
-#### 1. **Configuration non trouvée**
-
-```
-Error: Could not resolve placeholder 'server.port'
-```
-
-**Solution** : Vérifier que les fichiers de configuration sont dans `config/` et que le script de lancement configure correctement `spring.config.location`.
-
-#### 2. **Profil non reconnu**
-
-```
-Warning: No configuration found for profile 'myprofile'
-```
-
-**Solution** : Créer `config/application-myprofile.properties` ou vérifier l'orthographe du profil.
-
-#### 3. **Port déjà utilisé**
-
-```
-Error: Port 8080 is already in use
-```
-
-**Solution** : Changer le port dans la configuration ou utiliser une variable d'environnement :
-
+#### Configuration non trouvée
 ```bash
+# Erreur: Could not resolve placeholder 'server.port'
+# Solution: Vérifier spring.config.location
+echo "Configuration location: $(java -jar target/*.jar --spring.config.location=config/)" 
+```
+
+#### Profil non reconnu
+```bash
+# Erreur: No configuration found for profile 'myprofile'
+# Solution: Créer config/application-myprofile.properties
+touch config/application-myprofile.properties
+```
+
+#### Port déjà utilisé
+```bash
+# Erreur: Port 8080 is already in use
+# Solution 1: Changer le port
 export SERVER_PORT=8090
 ./angel-launcher.sh start
+
+# Solution 2: Arrêter le processus existant
+lsof -ti:8080 | xargs kill -9
 ```
 
-#### 4. **Base de données inaccessible**
+#### Variables d'environnement
+```bash
+# Debug des variables
+printenv | grep -E "(SERVER|DATABASE|ANGEL)" | sort
 
+# Test avec variables temporaires
+SERVER_PORT=8090 ./angel-launcher.sh start -p dev
 ```
-Error: Could not create connection to database
-```
-
-**Solution** : Vérifier les paramètres de base de données dans la configuration.
 
 ### Logs de Configuration
 
 ```bash
-# Voir la configuration chargée
-./angel-launcher.sh start -v | grep "spring.config"
+# Voir la configuration chargée au démarrage
+./angel-launcher.sh start --debug | grep -E "(spring.config|PropertySource)"
 
-# Debug de la configuration
-./angel-launcher.sh start --debug
+# Logs spécifiques configuration
+tail -f logs/angel.log | grep -i "config\|property\|profile"
 
-# Logs spécifiques à la configuration
-tail -f logs/angel.log | grep -i "config\|property"
+# Debug complet configuration Spring
+./angel-launcher.sh start --debug --logging.level.org.springframework.boot.context.config=TRACE
 ```
 
-## Migration de Configuration
+## 📊 Configuration par Composant
 
-### Depuis l'Ancien Format JSON
+### Reconnaissance Vocale
+```properties
+# Wake word detection
+voice.wake-word.enabled=true
+voice.wake-word.words=angel,angèle,ange
+voice.wake-word.threshold=0.7
+voice.wake-word.timeout=5000
+voice.wake-word.fallback-mode=true
 
-Si vous avez un ancien fichier `angel-config.json`, voici comment migrer :
+# Speech synthesis
+voice.speech.synthesis.voice=Microsoft Hortense - French (France) (fr-FR)
+voice.speech.synthesis.rate=1.0
+voice.speech.synthesis.pitch=1.0
+voice.speech.synthesis.volume=0.8
+voice.speech.synthesis.queue-size=10
 
-```bash
-# Script de migration (exemple)
-#!/bin/bash
-
-OLD_CONFIG="config/angel-config.json"
-NEW_CONFIG="config/application.properties"
-
-if [[ -f "$OLD_CONFIG" ]]; then
-    echo "Migration de $OLD_CONFIG vers $NEW_CONFIG"
-    
-    # Extraire les valeurs avec jq et convertir
-    echo "# Configuration migrée depuis $OLD_CONFIG" >> "$NEW_CONFIG"
-    echo "server.port=$(jq -r '.server.port // 8080' "$OLD_CONFIG")" >> "$NEW_CONFIG"
-    echo "avatar.enabled=$(jq -r '.avatar.enabled // true' "$OLD_CONFIG")" >> "$NEW_CONFIG"
-    
-    echo "Migration terminée. Vérifiez $NEW_CONFIG"
-fi
+# Speech recognition
+voice.speech.recognition.language=fr-FR
+voice.speech.recognition.continuous=true
+voice.speech.recognition.interim-results=true
 ```
 
-## Conclusion
+### Propositions d'Activités
+```properties
+# Propositions générales
+proposals.enabled=true
+proposals.max-per-day=20
+proposals.min-interval-between=1800000
+proposals.priority-threshold=0.7
 
-La configuration d'Angel Virtual Assistant est maintenant centralisée et flexible grâce à Spring Boot. Les points clés :
+# Propositions par type
+proposals.daily.news.enabled=true
+proposals.daily.news.max-per-day=5
+proposals.daily.weather.enabled=true
+proposals.daily.weather.max-per-day=3
+proposals.reminders.enabled=true
+proposals.conversations.enabled=true
 
-1. **Configuration centralisée** dans le dossier `config/`
-2. **Profils Spring Boot** pour différents environnements
-3. **Variables d'environnement** pour les valeurs sensibles
-4. **Validation automatique** des propriétés
-5. **Hot reload** en développement
+# Mapping activités → propositions
+proposals.activity-mapping.cleaning=recommendations,stories,music
+proposals.activity-mapping.eating=news,weather,reminders,conversations
+proposals.activity-mapping.waiting=news,weather,stories,games,media
+```
 
-Cette approche permet une gestion propre et professionnelle de la configuration tout en préservant la flexibilité nécessaire pour différents environnements d'exécution.
+### Mode Test Avancé
+```properties
+# Test simulation
+angel.test.simulation.enabled=true
+angel.test.simulation.interval=30000
+angel.test.simulation.randomness=0.3
+angel.test.simulation.speed-multiplier=1.0
+angel.test.simulation.noise-enabled=false
 
-Pour plus d'informations :
-- [README.md](../README.md) : Documentation principale
-- [WEB_INTERFACE.md](WEB_INTERFACE.md) : Guide de l'interface web
-- [SPRING_BOOT_MIGRATION.md](SPRING_BOOT_MIGRATION.md) : Guide de migration
+# Test scenarios
+angel.test.scenarios.enabled=true
+angel.test.scenarios.auto-load=true
+angel.test.scenarios.default=normal_day
+angel.test.scenarios.path=config/test/scenarios/
+
+# Test dashboard
+angel.test.dashboard.enabled=true
+angel.test.dashboard.refresh-interval=5000
+angel.test.dashboard.max-log-entries=1000
+angel.test.dashboard.auto-start=false
+```
+
+---
+
+La configuration d'Angel Virtual Assistant est maintenant centralisée, flexible et adaptée à tous les environnements grâce aux profils Spring Boot et à la gestion des variables d'environnement.
