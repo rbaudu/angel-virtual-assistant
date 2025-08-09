@@ -85,9 +85,15 @@ Le système détecte automatiquement plusieurs formes du nom :
 
 ## 🤖 Système IA Multi-Providers
 
-### Architecture Intelligente
+### Architecture Intelligente Hybride
 
-Le système classe automatiquement les questions en deux catégories et sélectionne l'IA optimale selon des poids configurables :
+Le système offre deux modes d'appel aux IA pour une flexibilité maximale :
+
+#### **Modes de Connexion**
+- **Mode Direct** : Appels HTTP directs aux endpoints des IA (HttpClient natif)
+- **Mode API** : Utilisation des SDK Spring et services intégrés (RestTemplate)
+
+Le mode est configurable par provider dans `ai-config.json` avec la propriété `"mode": "direct"` ou `"mode": "api"`.
 
 #### **Questions Simples → Réponse Audio Directe**
 Distribution par défaut :
@@ -114,6 +120,28 @@ Exemples typiques :
 "Angèle, analyse les avantages et inconvénients du télétravail"
 "Angèle, compare les approches philosophiques de Kant et Descartes"
 ```
+
+### Modes d'Appel aux IA
+
+#### Mode Direct (HttpClient)
+- Appels HTTP natifs sans dépendances Spring
+- Plus rapide et léger
+- Contrôle total sur les headers et timeouts
+- Idéal pour les endpoints publics des IA
+- Configuration : `"mode": "direct"`
+
+#### Mode API (Spring Services)
+- Utilisation des SDK et RestTemplate Spring
+- Intégration avec l'écosystème Spring Boot
+- Gestion automatique des retry et circuit breakers
+- Meilleur pour les services internes
+- Configuration : `"mode": "api"`
+
+#### Sélection Automatique du Mode
+Le système choisit automatiquement le mode optimal si non spécifié :
+- Présence de clé API → Mode Direct privilégié
+- Absence de clé API → Mode API avec fallback
+- Échec du mode principal → Bascule automatique sur l'autre mode
 
 ### Analyse Automatique de Complexité
 
@@ -215,6 +243,7 @@ Fichier `config/ai-config.json` :
       "enabled": true,
       "priority": 1,
       "weight": 50,
+      "mode": "direct",
       "apiKey": "${OPENAI_API_KEY}",
       "model": "gpt-4o-realtime-preview",
       "voice": "nova",
@@ -226,6 +255,7 @@ Fichier `config/ai-config.json` :
       "enabled": true,
       "priority": 2,
       "weight": 30,
+      "mode": "direct",
       "apiKey": "${GOOGLE_API_KEY}",
       "model": "gemini-pro-live",
       "voice": "fr-FR-Wavenet-C",
@@ -237,6 +267,7 @@ Fichier `config/ai-config.json` :
       "enabled": true,
       "priority": 3,
       "weight": 20,
+      "mode": "api",
       "apiKey": "${AZURE_OPENAI_KEY}",
       "endpoint": "${AZURE_OPENAI_ENDPOINT}",
       "voice": "fr-FR-DeniseNeural",
@@ -251,7 +282,7 @@ Fichier `config/ai-config.json` :
       "enabled": true,
       "priority": 1,
       "weight": 60,
-      "mode": "api",
+      "mode": "direct",
       "apiKey": "${ANTHROPIC_API_KEY}",
       "model": "claude-3-5-sonnet-20241022",
       "maxTokens": 300,
@@ -259,12 +290,13 @@ Fichier `config/ai-config.json` :
       "ttsProvider": "azure",
       "voice": "fr-FR-DeniseNeural",
       "endpoint": "https://api.anthropic.com/v1/messages",
-      "systemPrompt": "Tu es Angèle..." 
+      "systemPrompt": "Tu es Angèle, un assistant vocal intelligent et bienveillant..." 
     },
     "mistral": {
       "enabled": true,
       "priority": 2,
       "weight": 40,
+      "mode": "api",
       "apiKey": "${MISTRAL_API_KEY}",
       "model": "mistral-large-latest",
       "maxTokens": 300,
@@ -440,6 +472,23 @@ com.angel.voice/
   - Analyse de complexité des questions
   - Sélection pondérée aléatoire
   - Gestion des priorités et poids
+  - Attribution du mode (direct/api) selon configuration
+
+**`AIProviderService.java`**
+- **Rôle** : Orchestrateur des appels IA
+- **Responsabilités** :
+  - Délégation aux services spécifiques selon le provider
+  - Gestion des timeouts adaptés au mode
+  - Coordination avec TTSService pour la synthèse vocale
+  - Statistiques et monitoring des appels
+
+**`AIProvider.java`**
+- **Rôle** : Modèle de données pour les fournisseurs IA
+- **Propriétés clés** :
+  - `mode` : "direct" ou "api"
+  - `endpoint` : URL pour le mode direct
+  - `systemPrompt` : Personnalisation du comportement IA
+  - Méthodes de validation et fallback
 
 **`WebSocketConfig.java`**
 - **Rôle** : Configuration Spring WebSocket
@@ -533,6 +582,28 @@ Messages échangés entre frontend et backend :
 }
 ```
 
+## 🎯 Avantages de l'Architecture Hybride
+
+### Flexibilité Maximale
+- **Choix du mode par provider** : Chaque IA peut utiliser son mode optimal
+- **Bascule automatique** : Si un mode échoue, l'autre prend le relais
+- **Configuration sans code** : Changement de mode via JSON uniquement
+
+### Performances Optimisées
+- **Mode Direct** : Moins de latence, appels HTTP natifs
+- **Mode API** : Meilleure intégration Spring, retry automatique
+- **Timeouts adaptés** : 30s pour direct, 10s pour API
+
+### Résilience Accrue
+- **Double mécanisme** : Si SDK échoue, HTTP direct disponible
+- **Fallback intelligent** : Sélection automatique du mode viable
+- **Health checks** : Désactivation temporaire des providers défaillants
+
+### Simplicité de Déploiement
+- **Pas de dépendances obligatoires** : Mode direct fonctionne sans SDK
+- **Configuration centralisée** : Un seul fichier JSON à gérer
+- **Variables d'environnement** : Clés API sécurisées et flexibles
+
 ## 🔄 Système de Fallback
 
 ### Gestion Automatique des Erreurs
@@ -600,12 +671,22 @@ Optimisation du texte pour la synthèse vocale :
 
 ### Logs Système
 ```bash
-# Sélection IA
-[AI_SELECTION] Provider: claude, Type: COMPLEX_TEXT, Time: 1691234567890
-[AI_SELECTION] Provider: openai_realtime, Type: SIMPLE_AUDIO, Time: 1691234567891
+# Sélection IA avec Mode
+[AI_SELECTION] Provider: claude, Type: COMPLEX_TEXT, Mode: direct, Time: 1691234567890
+[AI_SELECTION] Provider: openai_realtime, Type: SIMPLE_AUDIO, Mode: direct, Time: 1691234567891
 
-# Fallback
-[FALLBACK] claude → mistral, Reason: timeout, Duration: 5000ms
+# Appels selon le Mode
+INFO com.angel.voice.service.providers.ClaudeService : 🔗 Claude mode DIRECT
+INFO com.angel.voice.service.providers.MistralService : ⚙️ Mistral mode API (Spring)
+INFO com.angel.voice.AIProviderService : Appel IA: claude en mode direct pour question: Explique-moi...
+
+# Fallback avec changement de mode
+[FALLBACK] claude (direct) → claude (api), Reason: connection error
+[FALLBACK] mistral (api) → mistral (direct), Reason: SDK timeout
+
+# Statistiques par Mode
+[STATS] Provider: claude, Mode: direct, Duration: 1245ms, Success: true
+[STATS] Provider: mistral, Mode: api, Duration: 2100ms, Success: false
 
 # Wake Word
 INFO com.angel.voice.WakeWordWebSocketController : WebSocket connecté
@@ -649,18 +730,45 @@ Les paramètres peuvent être modifiés via l'interface web :
 - Mode écoute continue
 - Mode debug
 
+### Configuration des Modes d'Appel
+Exemples de configurations hybrides dans `ai-config.json` :
+
+```json
+// Mode Direct pour performance maximale
+"claude": {
+  "mode": "direct",
+  "endpoint": "https://api.anthropic.com/v1/messages",
+  "apiKey": "${ANTHROPIC_API_KEY}",
+  "systemPrompt": "Tu es Angèle..."
+}
+
+// Mode API pour intégration Spring
+"mistral": {
+  "mode": "api",
+  "apiKey": "${MISTRAL_API_KEY}",
+  "model": "mistral-large-latest"
+}
+
+// Configuration avec fallback automatique
+"openai_realtime": {
+  "mode": "direct",
+  "endpoint": "https://api.openai.com/v1/audio",
+  "fallbackMode": "api"  // Si direct échoue
+}
+```
+
 ### Ajustement des Poids
 Modification du fichier `ai-config.json` pour changer les probabilités :
 
 ```json
 // Favoriser OpenAI pour l'audio
-"openai_realtime": { "weight": 70 },
-"gemini_live": { "weight": 20 },
-"copilot_speech": { "weight": 10 }
+"openai_realtime": { "weight": 70, "mode": "direct" },
+"gemini_live": { "weight": 20, "mode": "direct" },
+"copilot_speech": { "weight": 10, "mode": "api" }
 
-// Équilibrer Claude et Mistral
-"claude": { "weight": 50 },
-"mistral": { "weight": 50 }
+// Équilibrer Claude et Mistral avec modes différents
+"claude": { "weight": 50, "mode": "direct" },
+"mistral": { "weight": 50, "mode": "api" }
 ```
 
 ### Voix TTS Personnalisées
@@ -1027,27 +1135,43 @@ voice.wake-words.es=Angel,Asistente
 
 ### Scénarios Détaillés
 
-#### Scénario Question Simple
+#### Scénario Question Simple (Mode Direct)
 ```
 Utilisateur: "Angèle, bonjour"
 → Détection: wake-word-detector.js
 → WebSocket: Message vers Java
 → Classification: SIMPLE_AUDIO
-→ Sélection: OpenAI Realtime (50% chance)
-→ Appel: OpenAIRealtimeService
+→ Sélection: OpenAI Realtime (50% chance, mode: direct)
+→ Appel: OpenAIRealtimeService.getAudioResponse()
+  → HttpClient direct vers OpenAI API
+  → Headers et auth gérés manuellement
 → Réponse: Audio direct "Bonjour ! Comment puis-je vous aider ?"
 ```
 
-#### Scénario Question Complexe
+#### Scénario Question Complexe (Mode Direct)
 ```
 Utilisateur: "Angèle, explique-moi la blockchain"
 → Détection: wake-word-detector.js
 → WebSocket: Message vers Java
 → Classification: COMPLEX_TEXT (mots: explique, blockchain)
-→ Sélection: Claude (60% chance)
-→ Appel: ClaudeService → texte détaillé
+→ Sélection: Claude (60% chance, mode: direct)
+→ Appel: ClaudeService.getTextResponseDirect()
+  → HttpClient vers api.anthropic.com
+  → JSON construit manuellement
 → TTS: Azure Speech → audio
 → Réponse: Explication vocale complète
+```
+
+#### Scénario avec Mode API
+```
+Utilisateur: "Angèle, raconte une histoire"
+→ Classification: COMPLEX_TEXT
+→ Sélection: Mistral (40% chance, mode: api)
+→ Appel: MistralService.getTextResponseAPI()
+  → RestTemplate Spring
+  → SDK Mistral intégré
+→ TTS: Azure Speech → audio
+→ Réponse: Histoire créative vocalisée
 ```
 
 #### Scénario Fallback

@@ -4,7 +4,11 @@
     "fallbackOnError": true,
     "maxRetries": 2,
     "timeoutMs": 5000,
-    "weightingStrategy": "inverse_priority"
+    "weightingStrategy": "inverse_priority",
+    "modePreference": "direct",
+    "autoSwitchMode": true,
+    "directModeTimeout": 30000,
+    "apiModeTimeout": 10000
   },
   
   "questionAnalysis": {
@@ -27,34 +31,42 @@
       "enabled": true,
       "priority": 1,
       "weight": 50,
+      "mode": "direct",
       "apiKey": "${OPENAI_API_KEY}",
+      "endpoint": "https://api.openai.com/v1/audio/speech",
       "model": "gpt-4o-realtime-preview",
       "voice": "nova",
       "responseFormat": "audio",
       "maxTokens": 150,
-      "temperature": 0.7
+      "temperature": 0.7,
+      "systemPrompt": "Tu es Angèle, un assistant vocal français intelligent et bienveillant. Réponds de manière naturelle et conversationnelle."
     },
     "gemini_live": {
       "enabled": true,
       "priority": 2,
       "weight": 30,
+      "mode": "direct",
       "apiKey": "${GOOGLE_API_KEY}",
+      "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent",
       "model": "gemini-pro-live",
       "voice": "fr-FR-Wavenet-C",
       "responseFormat": "audio",
       "maxTokens": 150,
-      "temperature": 0.7
+      "temperature": 0.7,
+      "systemPrompt": "Tu es Angèle, un assistant vocal français. Réponds de manière claire et concise."
     },
     "copilot_speech": {
       "enabled": true,
       "priority": 3,
       "weight": 20,
+      "mode": "api",
       "apiKey": "${AZURE_API_KEY}",
       "endpoint": "${AZURE_ENDPOINT}",
       "voice": "fr-FR-DeniseNeural",
       "responseFormat": "audio",
       "maxTokens": 150,
-      "temperature": 0.7
+      "temperature": 0.7,
+      "systemPrompt": "Tu es Angèle, un assistant vocal basé sur Azure. Fournis des réponses utiles et pertinentes."
     }
   },
 
@@ -63,23 +75,29 @@
       "enabled": true,
       "priority": 1,
       "weight": 60,
+      "mode": "direct",
       "apiKey": "${ANTHROPIC_API_KEY}",
+      "endpoint": "https://api.anthropic.com/v1/messages",
       "model": "claude-3-5-sonnet-20241022",
       "maxTokens": 300,
       "temperature": 0.3,
       "ttsProvider": "azure",
-      "voice": "fr-FR-DeniseNeural"
+      "voice": "fr-FR-DeniseNeural",
+      "systemPrompt": "Tu es Angèle, un assistant vocal français intelligent et bienveillant. Tu es capable d'analyser, d'expliquer et de répondre à des questions complexes de manière claire et structurée. Tes réponses sont adaptées à l'oral, naturelles et conversationnelles."
     },
     "mistral": {
       "enabled": true,
       "priority": 2,
       "weight": 40,
+      "mode": "api",
       "apiKey": "${MISTRAL_API_KEY}",
+      "endpoint": "https://api.mistral.ai/v1/chat/completions",
       "model": "mistral-large-latest",
       "maxTokens": 300,
       "temperature": 0.3,
       "ttsProvider": "azure",
-      "voice": "fr-FR-HenriNeural"
+      "voice": "fr-FR-HenriNeural",
+      "systemPrompt": "Tu es Angèle, un assistant créatif et technique. Tu excelles dans les explications techniques, la créativité et les réponses détaillées. Tes réponses sont engageantes et informatives."
     }
   },
 
@@ -103,6 +121,38 @@
     "enabled": true,
     "logSelections": true,
     "trackPerformance": true,
-    "adjustWeightsBasedOnSuccess": false
+    "adjustWeightsBasedOnSuccess": false,
+    "logModeUsage": true
+  },
+  
+  "fallbackConfiguration": {
+    "enabled": true,
+    "primaryToFallbackMapping": {
+      "claude": ["mistral", "openai_realtime"],
+      "mistral": ["claude", "gemini_live"],
+      "openai_realtime": ["gemini_live", "copilot_speech"],
+      "gemini_live": ["openai_realtime", "copilot_speech"],
+      "copilot_speech": ["openai_realtime", "gemini_live"]
+    },
+    "modeFallback": {
+      "direct": "api",
+      "api": "direct"
+    },
+    "maxFallbackAttempts": 3,
+    "fallbackDelay": 500
+  },
+  
+  "healthCheck": {
+    "enabled": true,
+    "interval": 300000,
+    "timeout": 5000,
+    "disableOnFailure": true,
+    "reenableAfter": 600000,
+    "endpoints": {
+      "claude": "https://api.anthropic.com/v1/health",
+      "openai": "https://api.openai.com/v1/health",
+      "mistral": "https://api.mistral.ai/health",
+      "google": "https://generativelanguage.googleapis.com/health"
+    }
   }
 }
