@@ -251,12 +251,15 @@ Fichier `config/ai-config.json` :
       "enabled": true,
       "priority": 1,
       "weight": 60,
+      "mode": "api",
       "apiKey": "${ANTHROPIC_API_KEY}",
       "model": "claude-3-5-sonnet-20241022",
       "maxTokens": 300,
       "temperature": 0.3,
       "ttsProvider": "azure",
-      "voice": "fr-FR-DeniseNeural"
+      "voice": "fr-FR-DeniseNeural",
+      "endpoint": "https://api.anthropic.com/v1/messages",
+      "systemPrompt": "Tu es Angèle..." 
     },
     "mistral": {
       "enabled": true,

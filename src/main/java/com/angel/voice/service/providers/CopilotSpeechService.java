@@ -5,55 +5,172 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.*;
+
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import com.angel.util.LogUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
-import java.util.Base64;
 
 @Service
 public class CopilotSpeechService {
+    
+    private static final Logger LOGGER = LogUtil.getLogger(CopilotSpeechService.class);
     
     @Autowired
     private com.angel.voice.service.TTSService ttsService;
     
     private final RestTemplate restTemplate = new RestTemplate();
+    private final HttpClient httpClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
     
     // URLs Azure OpenAI (Copilot utilise Azure OpenAI sous le capot)
-    private static final String AZURE_OPENAI_URL = "https://{endpoint}.openai.azure.com/openai/deployments/{deployment}/chat/completions?api-version=2024-02-15-preview";
-    private static final String AZURE_SPEECH_URL = "https://{region}.tts.speech.microsoft.com/cognitiveservices/v1";
+    private static final String AZURE_OPENAI_URL_TEMPLATE = "https://{endpoint}.openai.azure.com/openai/deployments/{deployment}/chat/completions?api-version=2024-02-15-preview";
+    
+    public CopilotSpeechService() {
+        this.httpClient = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(10))
+            .build();
+    }
     
     /**
-     * Obtient une réponse audio de Copilot Speech
+     * Point d'entrée principal - choisit automatiquement le mode
      */
     public String getAudioResponse(String question, AIProvider provider) throws Exception {
-        try {
-            // 1. Obtenir réponse de Azure OpenAI (backend de Copilot)
-            String textResponse = getCopilotTextResponse(question, provider);
-            
-            // 2. Convertir en audio via Azure Speech Services
-            return convertToAudioWithAzureSpeech(textResponse, provider);
-            
-        } catch (Exception e) {
-            throw new Exception("Erreur Copilot Speech: " + e.getMessage(), e);
+        if ("direct".equals(provider.getMode()) || !hasApiKeyForSpringMode(provider)) {
+            LOGGER.log(Level.INFO, "🔗 Copilot mode DIRECT");
+            return getAudioResponseDirect(question, provider);
+        } else {
+            LOGGER.log(Level.INFO, "⚙️ Copilot mode API (Spring)");
+            return getAudioResponseAPI(question, provider);
         }
     }
     
     /**
-     * Appel à Azure OpenAI (backend de Copilot)
+     * Mode DIRECT : Appel HTTP direct via HttpClient
      */
-    private String getCopilotTextResponse(String question, AIProvider provider) throws Exception {
+    private String getAudioResponseDirect(String question, AIProvider provider) throws Exception {
+        String apiKey = resolveApiKey(provider.getApiKey());
+        if (apiKey == null || apiKey.isEmpty()) {
+            throw new IllegalStateException("Clé API Azure OpenAI manquante pour mode direct");
+        }
+        
+        try {
+            // 1. Obtenir réponse de Azure OpenAI (backend de Copilot)
+            String textResponse = getCopilotTextResponseDirect(question, provider, apiKey);
+            
+            // 2. Convertir en audio via Azure Speech Services
+            return convertToAudioWithAzureSpeechDirect(textResponse, provider);
+            
+        } catch (Exception e) {
+            throw new Exception("Erreur Copilot Speech Direct: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Mode API : Appel via RestTemplate (méthode Spring classique)
+     */
+    private String getAudioResponseAPI(String question, AIProvider provider) throws Exception {
+        try {
+            // 1. Obtenir réponse de Azure OpenAI
+            String textResponse = getCopilotTextResponseAPI(question, provider);
+            
+            // 2. Convertir en audio via Azure Speech Services
+            return convertToAudioWithAzureSpeechAPI(textResponse, provider);
+            
+        } catch (Exception e) {
+            throw new Exception("Erreur Copilot Speech API: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Appel à Azure OpenAI (backend de Copilot) - Mode Direct
+     */
+    private String getCopilotTextResponseDirect(String question, AIProvider provider, String apiKey) throws Exception {
         String endpoint = resolveEnvVariable(provider.getEndpoint());
         String deployment = provider.getModel(); // deployment name dans Azure
         
-        String url = AZURE_OPENAI_URL
+        if (endpoint == null || deployment == null) {
+            throw new IllegalStateException("Endpoint Azure ou deployment manquant pour Copilot");
+        }
+        
+        String url = AZURE_OPENAI_URL_TEMPLATE
+            .replace("{endpoint}", endpoint)
+            .replace("{deployment}", deployment);
+        
+        // Préparer la requête JSON
+        ObjectNode requestBody = objectMapper.createObjectNode();
+        requestBody.put("max_tokens", provider.getMaxTokens());
+        requestBody.put("temperature", provider.getTemperature());
+        requestBody.put("top_p", 0.95);
+        requestBody.put("frequency_penalty", 0.0);
+        requestBody.put("presence_penalty", 0.0);
+        requestBody.put("stream", false);
+        
+        // Messages avec personnalité Copilot/Angèle
+        ArrayNode messages = objectMapper.createArrayNode();
+        
+        // System prompt adapté à Copilot
+        ObjectNode systemMessage = objectMapper.createObjectNode();
+        systemMessage.put("role", "system");
+        systemMessage.put("content", provider.getSystemPrompt() != null ? 
+            provider.getSystemPrompt() :
+            "Tu es Angèle, un assistant vocal intelligent alimenté par Microsoft Copilot. " +
+            "Tu es utile, précise et bienveillante. Réponds de manière conversationnelle " +
+            "et naturelle, comme dans une discussion parlée. Privilégie des réponses claires " +
+            "et concises, adaptées à l'interaction vocale.");
+        messages.add(systemMessage);
+        
+        // Question de l'utilisateur
+        ObjectNode userMessage = objectMapper.createObjectNode();
+        userMessage.put("role", "user");
+        userMessage.put("content", question);
+        messages.add(userMessage);
+        
+        requestBody.set("messages", messages);
+        
+        // Appel HTTP direct
+        HttpRequest request = HttpRequest.newBuilder()
+            .uri(URI.create(url))
+            .header("Content-Type", "application/json")
+            .header("api-key", apiKey)
+            .timeout(Duration.ofSeconds(30))
+            .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(requestBody)))
+            .build();
+            
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        
+        if (response.statusCode() == 200) {
+            JsonNode jsonResponse = objectMapper.readTree(response.body());
+            return extractTextFromResponse(jsonResponse);
+        } else {
+            throw new Exception("Erreur Azure OpenAI (Copilot) Direct: " + response.statusCode() + 
+                " - " + response.body());
+        }
+    }
+    
+    /**
+     * Appel à Azure OpenAI (backend de Copilot) - Mode API
+     */
+    private String getCopilotTextResponseAPI(String question, AIProvider provider) throws Exception {
+        String endpoint = resolveEnvVariable(provider.getEndpoint());
+        String deployment = provider.getModel(); // deployment name dans Azure
+        
+        String url = AZURE_OPENAI_URL_TEMPLATE
             .replace("{endpoint}", endpoint)
             .replace("{deployment}", deployment);
         
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("api-key", provider.getApiKey());
+        headers.set("api-key", resolveApiKey(provider.getApiKey()));
         
         ObjectNode requestBody = objectMapper.createObjectNode();
         requestBody.put("max_tokens", provider.getMaxTokens());
@@ -69,7 +186,8 @@ public class CopilotSpeechService {
         // System prompt adapté à Copilot
         ObjectNode systemMessage = objectMapper.createObjectNode();
         systemMessage.put("role", "system");
-        systemMessage.put("content", 
+        systemMessage.put("content", provider.getSystemPrompt() != null ? 
+            provider.getSystemPrompt() :
             "Tu es Angèle, un assistant vocal intelligent alimenté par Microsoft Copilot. " +
             "Tu es utile, précise et bienveillante. Réponds de manière conversationnelle " +
             "et naturelle, comme dans une discussion parlée. Privilégie des réponses claires " +
@@ -93,7 +211,7 @@ public class CopilotSpeechService {
             JsonNode jsonResponse = objectMapper.readTree(response.getBody());
             return extractTextFromResponse(jsonResponse);
         } else {
-            throw new Exception("Erreur Azure OpenAI (Copilot): " + response.getStatusCode() + 
+            throw new Exception("Erreur Azure OpenAI (Copilot) API: " + response.getStatusCode() + 
                 " - " + response.getBody());
         }
     }
@@ -118,9 +236,18 @@ public class CopilotSpeechService {
     }
     
     /**
-     * Conversion texte vers audio via Azure Speech Services
+     * Conversion texte vers audio via Azure Speech Services - Mode Direct
      */
-    private String convertToAudioWithAzureSpeech(String text, AIProvider provider) throws Exception {
+    private String convertToAudioWithAzureSpeechDirect(String text, AIProvider provider) throws Exception {
+        // Utiliser le service TTS centralisé avec configuration Azure
+        AIProvider ttsProvider = createAzureTTSProvider(provider);
+        return ttsService.synthesizeSpeech(text, ttsProvider);
+    }
+    
+    /**
+     * Conversion texte vers audio via Azure Speech Services - Mode API
+     */
+    private String convertToAudioWithAzureSpeechAPI(String text, AIProvider provider) throws Exception {
         // Utiliser le service TTS centralisé avec configuration Azure
         AIProvider ttsProvider = createAzureTTSProvider(provider);
         return ttsService.synthesizeSpeech(text, ttsProvider);
@@ -136,40 +263,8 @@ public class CopilotSpeechService {
         ttsProvider.setTtsProvider("azure");
         ttsProvider.setVoice(originalProvider.getVoice() != null ? 
             originalProvider.getVoice() : "fr-FR-DeniseNeural");
-        ttsProvider.setApiKey(originalProvider.getApiKey());
+        ttsProvider.setApiKey(System.getenv("AZURE_SPEECH_KEY")); // Clé TTS séparée
         return ttsProvider;
-    }
-    
-    /**
-     * Implémentation avec Azure Speech SDK (alternative)
-     */
-    public String getAudioResponseWithSpeechSDK(String question, AIProvider provider) throws Exception {
-        // TODO: Implémenter avec Azure Speech SDK pour performance optimale
-        // Nécessite d'ajouter la dépendance Azure Speech SDK
-        
-        /*
-        SpeechConfig speechConfig = SpeechConfig.fromSubscription(
-            provider.getApiKey(), 
-            resolveEnvVariable("${AZURE_REGION}")
-        );
-        speechConfig.setSpeechSynthesisVoiceName(provider.getVoice());
-        
-        SpeechSynthesizer synthesizer = new SpeechSynthesizer(speechConfig);
-        
-        // D'abord obtenir le texte
-        String textResponse = getCopilotTextResponse(question, provider);
-        
-        // Puis synthétiser
-        SpeechSynthesisResult result = synthesizer.SpeakTextAsync(textResponse).get();
-        
-        if (result.getReason() == ResultReason.SynthesizingAudioCompleted) {
-            return Base64.getEncoder().encodeToString(result.getAudioData());
-        } else {
-            throw new Exception("Erreur synthèse Azure Speech SDK: " + result.getReason());
-        }
-        */
-        
-        throw new UnsupportedOperationException("Azure Speech SDK pas encore configuré");
     }
     
     /**
@@ -204,67 +299,7 @@ public class CopilotSpeechService {
     public String getContextualResponse(String question, String[] conversationHistory, AIProvider provider) throws Exception {
         // TODO: Implémenter la gestion du contexte conversationnel
         // Copilot peut maintenir le contexte sur plusieurs échanges
-        
-        String url = AZURE_OPENAI_URL
-            .replace("{endpoint}", resolveEnvVariable(provider.getEndpoint()))
-            .replace("{deployment}", provider.getModel());
-        
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("api-key", provider.getApiKey());
-        
-        ObjectNode requestBody = objectMapper.createObjectNode();
-        requestBody.put("max_tokens", provider.getMaxTokens());
-        requestBody.put("temperature", provider.getTemperature());
-        
-        // Construire l'historique des messages
-        ArrayNode messages = objectMapper.createArrayNode();
-        
-        // System message
-        ObjectNode systemMessage = objectMapper.createObjectNode();
-        systemMessage.put("role", "system");
-        systemMessage.put("content", "Tu es Angèle, assistant vocal intelligent. " +
-            "Maintiens le contexte de notre conversation et réponds naturellement.");
-        messages.add(systemMessage);
-        
-        // Ajouter l'historique si disponible
-        if (conversationHistory != null) {
-            for (int i = 0; i < conversationHistory.length; i += 2) {
-                if (i + 1 < conversationHistory.length) {
-                    // Question utilisateur
-                    ObjectNode userMsg = objectMapper.createObjectNode();
-                    userMsg.put("role", "user");
-                    userMsg.put("content", conversationHistory[i]);
-                    messages.add(userMsg);
-                    
-                    // Réponse assistant
-                    ObjectNode assistantMsg = objectMapper.createObjectNode();
-                    assistantMsg.put("role", "assistant");
-                    assistantMsg.put("content", conversationHistory[i + 1]);
-                    messages.add(assistantMsg);
-                }
-            }
-        }
-        
-        // Question actuelle
-        ObjectNode currentQuestion = objectMapper.createObjectNode();
-        currentQuestion.put("role", "user");
-        currentQuestion.put("content", question);
-        messages.add(currentQuestion);
-        
-        requestBody.set("messages", messages);
-        
-        HttpEntity<String> request = new HttpEntity<>(
-            objectMapper.writeValueAsString(requestBody), headers);
-        
-        ResponseEntity<String> response = restTemplate.postForEntity(url, request, String.class);
-        
-        if (response.getStatusCode() == HttpStatus.OK) {
-            JsonNode jsonResponse = objectMapper.readTree(response.getBody());
-            return extractTextFromResponse(jsonResponse);
-        } else {
-            throw new Exception("Erreur conversation contextuelle Copilot: " + response.getStatusCode());
-        }
+        return getAudioResponse(question, provider);
     }
     
     /**
@@ -273,41 +308,86 @@ public class CopilotSpeechService {
     public String getCopilotWithGraphData(String question, AIProvider provider) throws Exception {
         // TODO: Implémenter l'intégration Microsoft Graph
         // Permet à Copilot d'accéder aux données Office 365, calendrier, emails, etc.
-        
-        /*
-        // Configuration Graph API
-        GraphServiceClient graphClient = GraphServiceClient.builder()
-            .authenticationProvider(authProvider)
-            .buildClient();
-            
-        // Récupérer données pertinentes selon la question
-        if (question.toLowerCase().contains("réunion") || question.toLowerCase().contains("calendrier")) {
-            // Récupérer événements du calendrier
-            EventCollectionPage events = graphClient.me().events()
-                .buildRequest()
-                .top(10)
-                .get();
-                
-            // Intégrer dans le prompt Copilot
-        }
-        */
-        
         throw new UnsupportedOperationException("Intégration Microsoft Graph pas encore implémentée");
     }
     
     /**
-     * Health check pour Copilot Speech
+     * Health check unifié
      */
     public boolean isHealthy() {
+        return isHealthy(null);
+    }
+    
+    /**
+     * Health check avec provider spécifique
+     */
+    public boolean isHealthy(AIProvider provider) {
         try {
             String apiKey = System.getenv("AZURE_OPENAI_KEY");
             String endpoint = System.getenv("AZURE_OPENAI_ENDPOINT");
             
             if (apiKey == null || endpoint == null) return false;
             
-            String url = AZURE_OPENAI_URL
+            if (provider != null && "direct".equals(provider.getMode())) {
+                return testHealthDirect(apiKey, endpoint, provider);
+            } else {
+                return testHealthAPI(apiKey, endpoint, provider);
+            }
+            
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Copilot Health Check Failed: {0}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Health check mode direct
+     */
+    private boolean testHealthDirect(String apiKey, String endpoint, AIProvider provider) {
+        try {
+            String deployment = provider != null ? provider.getModel() : "gpt-4";
+            String url = AZURE_OPENAI_URL_TEMPLATE
                 .replace("{endpoint}", endpoint)
-                .replace("{deployment}", "gpt-4"); // deployment par défaut
+                .replace("{deployment}", deployment);
+            
+            ObjectNode requestBody = objectMapper.createObjectNode();
+            requestBody.put("max_tokens", 10);
+            requestBody.put("temperature", 0.1);
+            
+            ArrayNode messages = objectMapper.createArrayNode();
+            ObjectNode message = objectMapper.createObjectNode();
+            message.put("role", "user");
+            message.put("content", "Hi");
+            messages.add(message);
+            requestBody.set("messages", messages);
+            
+            HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .header("Content-Type", "application/json")
+                .header("api-key", apiKey)
+                .timeout(Duration.ofSeconds(10))
+                .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(requestBody)))
+                .build();
+                
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            
+            return response.statusCode() == 200;
+            
+        } catch (Exception e) {
+            LOGGER.log(Level.FINE, "Copilot Health Check Direct Failed: {0}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Health check mode API
+     */
+    private boolean testHealthAPI(String apiKey, String endpoint, AIProvider provider) {
+        try {
+            String deployment = provider != null ? provider.getModel() : "gpt-4";
+            String url = AZURE_OPENAI_URL_TEMPLATE
+                .replace("{endpoint}", endpoint)
+                .replace("{deployment}", deployment);
             
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
@@ -332,9 +412,18 @@ public class CopilotSpeechService {
             return response.getStatusCode() == HttpStatus.OK;
             
         } catch (Exception e) {
-            System.err.println("Copilot Health Check Failed: " + e.getMessage());
+            LOGGER.log(Level.FINE, "Copilot Health Check API Failed: {0}", e.getMessage());
             return false;
         }
+    }
+    
+    /**
+     * Vérification de disponibilité de la clé API pour mode Spring
+     */
+    private boolean hasApiKeyForSpringMode(AIProvider provider) {
+        String apiKey = resolveApiKey(provider.getApiKey());
+        String endpoint = resolveEnvVariable(provider.getEndpoint());
+        return apiKey != null && !apiKey.isEmpty() && endpoint != null && !endpoint.isEmpty();
     }
     
     /**
@@ -346,6 +435,20 @@ public class CopilotSpeechService {
             return System.getenv(envVar);
         }
         return value;
+    }
+    
+    /**
+     * Résolution des clés API
+     */
+    private String resolveApiKey(String apiKeyTemplate) {
+        if (apiKeyTemplate == null) return null;
+        
+        if (apiKeyTemplate.startsWith("${") && apiKeyTemplate.endsWith("}")) {
+            String envVar = apiKeyTemplate.substring(2, apiKeyTemplate.length() - 1);
+            return System.getenv(envVar);
+        }
+        
+        return apiKeyTemplate;
     }
     
     /**

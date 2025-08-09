@@ -37,17 +37,21 @@ public class AISelectionService {
         
         // Vérification mots-clés complexes
         JsonNode complexKeywords = analysis.get("complexityKeywords");
-        for (JsonNode keyword : complexKeywords) {
-            if (questionLower.contains(keyword.asText())) {
-                complexityScore += 2;
+        if (complexKeywords != null) {
+            for (JsonNode keyword : complexKeywords) {
+                if (questionLower.contains(keyword.asText())) {
+                    complexityScore += 2;
+                }
             }
         }
         
         // Vérification mots-clés simples
         JsonNode simpleKeywords = analysis.get("simpleKeywords");
-        for (JsonNode keyword : simpleKeywords) {
-            if (questionLower.contains(keyword.asText())) {
-                complexityScore -= 1;
+        if (simpleKeywords != null) {
+            for (JsonNode keyword : simpleKeywords) {
+                if (questionLower.contains(keyword.asText())) {
+                    complexityScore -= 1;
+                }
             }
         }
         
@@ -69,6 +73,10 @@ public class AISelectionService {
             "audioProviders" : "textProviders";
         
         JsonNode providers = config.get(providersKey);
+        if (providers == null) {
+            throw new IllegalStateException("Aucune configuration trouvée pour: " + providersKey);
+        }
+        
         List<WeightedProvider> weightedProviders = new ArrayList<>();
         
         // Construire la liste pondérée
@@ -118,26 +126,59 @@ public class AISelectionService {
     }
     
     /**
-     * Création de l'objet AIProvider
+     * Création de l'objet AIProvider avec gestion sécurisée des propriétés
      */
     private AIProvider createAIProvider(String name, JsonNode config, QuestionType questionType) {
         AIProvider provider = new AIProvider();
         provider.setName(name);
         provider.setType(questionType);
-        provider.setPriority(config.get("priority").asInt());
-        provider.setWeight(config.get("weight").asInt());
-        provider.setApiKey(resolveEnvVariable(config.get("apiKey").asText()));
-        provider.setModel(config.get("model").asText());
-        provider.setMaxTokens(config.get("maxTokens").asInt(150));
-        provider.setTemperature(config.get("temperature").asDouble(0.7));
         
+        // Propriétés obligatoires avec valeurs par défaut
+        provider.setPriority(config.has("priority") ? config.get("priority").asInt() : 999);
+        provider.setWeight(config.has("weight") ? config.get("weight").asInt() : 1);
+        provider.setEnabled(config.has("enabled") ? config.get("enabled").asBoolean() : true);
+        
+        // Propriétés avec gestion null-safe
+        if (config.has("mode")) {
+            provider.setMode(config.get("mode").asText());
+        }
+        // Si pas de mode défini, garder la valeur par défaut "direct"
+        
+        if (config.has("apiKey")) {
+            provider.setApiKey(config.get("apiKey").asText());
+        }
+        
+        if (config.has("model")) {
+            provider.setModel(config.get("model").asText());
+        }
+        
+        if (config.has("endpoint")) {
+            provider.setEndpoint(config.get("endpoint").asText());
+        }
+        
+        if (config.has("systemPrompt")) {
+            provider.setSystemPrompt(config.get("systemPrompt").asText());
+        }
+        
+        // Propriétés numériques avec valeurs par défaut
+        provider.setMaxTokens(config.has("maxTokens") ? config.get("maxTokens").asInt() : 150);
+        provider.setTemperature(config.has("temperature") ? config.get("temperature").asDouble() : 0.7);
+        
+        // Configuration selon le type de question
         if (questionType == QuestionType.SIMPLE_AUDIO) {
-            provider.setVoice(config.get("voice").asText());
-            provider.setResponseFormat("audio");
+            provider.setResponseFormat(config.has("responseFormat") ? 
+                config.get("responseFormat").asText() : "audio");
+            if (config.has("voice")) {
+                provider.setVoice(config.get("voice").asText());
+            }
         } else {
-            provider.setTtsProvider(config.get("ttsProvider").asText());
-            provider.setVoice(config.get("voice").asText());
             provider.setResponseFormat("text");
+            if (config.has("ttsProvider")) {
+                provider.setTtsProvider(config.get("ttsProvider").asText());
+            }
+            if (config.has("voice")) {
+                provider.setVoice(config.get("voice").asText());
+            }
         }
         
         return provider;
@@ -147,7 +188,7 @@ public class AISelectionService {
      * Résolution des variables d'environnement
      */
     private String resolveEnvVariable(String value) {
-        if (value.startsWith("${") && value.endsWith("}")) {
+        if (value != null && value.startsWith("${") && value.endsWith("}")) {
             String envVar = value.substring(2, value.length() - 1);
             return System.getenv(envVar);
         }
@@ -158,12 +199,18 @@ public class AISelectionService {
      * Log des sélections pour statistiques
      */
     private void logSelection(String providerName, QuestionType questionType) {
-        JsonNode config = configService.getAIConfig();
-        if (config.get("statisticsTracking").get("logSelections").asBoolean(true)) {
-            System.out.println(String.format(
-                "[AI_SELECTION] Provider: %s, Type: %s, Time: %d", 
-                providerName, questionType, System.currentTimeMillis()
-            ));
+        try {
+            JsonNode config = configService.getAIConfig();
+            JsonNode statsConfig = config.get("statisticsTracking");
+            if (statsConfig != null && statsConfig.get("logSelections").asBoolean(true)) {
+                System.out.println(String.format(
+                    "[AI_SELECTION] Provider: %s, Type: %s, Time: %d", 
+                    providerName, questionType, System.currentTimeMillis()
+                ));
+            }
+        } catch (Exception e) {
+            // Ne pas faire échouer la sélection pour un problème de log
+            System.err.println("Erreur logging sélection IA: " + e.getMessage());
         }
     }
     
@@ -174,6 +221,27 @@ public class AISelectionService {
         // Implémentation pour tracking des statistiques
         // Pourrait être stocké en base ou en cache
         return new HashMap<>();
+    }
+    
+    /**
+     * Validation qu'un provider est utilisable
+     */
+    public boolean isProviderUsable(AIProvider provider) {
+        if (provider == null || !provider.isEnabled()) {
+            return false;
+        }
+        
+        // Vérifier que les propriétés essentielles sont définies
+        if (provider.getName() == null || provider.getModel() == null) {
+            return false;
+        }
+        
+        // En mode direct, vérifier que l'endpoint est défini
+        if ("direct".equals(provider.getMode()) && provider.getEndpoint() == null) {
+            return false;
+        }
+        
+        return provider.isValidConfiguration();
     }
     
     /**
